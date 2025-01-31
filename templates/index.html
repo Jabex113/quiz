@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campus</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+
+<body>
+    
+    <div class="container">
+        <div class="auth-form" id="login-form">
+            <h2><i class="fas fa-sign-in-alt"></i> Welcome Back</h2>
+            <form action="{{ url_for('login') }}" method="POST">
+                <div class="input-group">
+                    <input type="email" name="email" placeholder="School Email" required>
+                    <i class="fas fa-envelope"></i>
+                </div>
+                <div class="input-group">
+                    <input type="password" name="password" placeholder="Password" required>
+                    <i class="fas fa-lock"></i>
+                    <i class="fas fa-eye-slash toggle-password"></i>
+                </div>
+                <button type="submit" class="btn-submit">
+                    <span>Login</span>
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+            </form>
+            <p class="switch-form">
+                New to Campus? <a href="#" onclick="toggleForm('signup')">Create Account</a>
+            </p>
+        </div>
+
+        <div class="auth-form hidden" id="signup-form">
+            <h2><i class="fas fa-user-plus"></i> Create Account</h2>
+            <form action="{{ url_for('signup') }}" method="POST">
+                <div class="input-group">
+                    <input type="text" name="username" placeholder="Username" required>
+                    <i class="fas fa-user"></i>
+                </div>
+                <div class="input-group">
+                    <input type="email" name="email" placeholder="School Email" required>
+                    <i class="fas fa-envelope"></i>
+                </div>
+                <div class="input-group">
+                    <select name="strand" required>
+                        <option value="">Select Your Strand</option>
+                        <option value="STEM">STEM</option>
+                        <option value="HUMSS">HUMSS</option>
+                        <option value="ICT">ICT</option>
+                        <option value="TVL">TVL</option>
+                    </select>
+                    <i class="fas fa-graduation-cap"></i>
+                </div>
+                <div class="input-group">
+                    <input type="password" name="password" placeholder="Password" required>
+                    <i class="fas fa-lock"></i>
+                    <i class="fas fa-eye-slash toggle-password"></i>
+                </div>
+                <button type="submit" class="btn-submit">
+                    <span>Create Account</span>
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+            </form>
+            <p class="switch-form">
+                Already have an account? <a href="#" onclick="toggleForm('login')">Login</a>
+            </p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+    </div>
+    <script>
+        function toggleForm(formType) {
+            const forms = document.querySelectorAll('.auth-form');
+            forms.forEach(form => {
+                form.classList.add('hidden');
+            });
+            document.getElementById(formType + '-form').classList.remove('hidden');
+        }
+
+        document.querySelectorAll('.toggle-password').forEach(button => {
+            button.addEventListener('click', function() {
+                const input = this.previousElementSibling.previousElementSibling;
+                const type = input.type === 'password' ? 'text' : 'password';
+                input.type = type;
+                this.classList.toggle('fa-eye');
+                this.classList.toggle('fa-eye-slash');
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        h2 {
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 28px;
+        }
+        
+        h3 {
+            color: #666;
+            margin-top: 30px;
+            margin-bottom: 10px;
+            font-size: 22px;
+        }
+        
+        form {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 10px;
+            color: #333;
+            font-weight: bold;
+        }
+        
+        input[type="text"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-sizing: border-box;
+            margin-bottom: 20px;
+            font-size: 16px;
+        }
+        
+        button {
+            background-color: #4CAF50;
+            color: #fff;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .cancel-btn {
+            background-color: #f44336;
+        }
+
+        .cancel-btn:hover {
+            background-color: #d32f2f;
+        }
+        
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        
+        li {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            position: relative;
+        }
+        
+        li h4 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 20px;
+        }
+        
+        li p {
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .delete-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: #f44336;
+            cursor: pointer;
+            font-size: 18px;
+            transition: color 0.3s ease;
+        }
+        
+        .delete-btn:hover {
+            color: #d32f2f;
+        }
+
+        .popup-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 9999;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        
+        .popup-container.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        
+        .popup {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            max-width: 400px;
+            transform: scale(0.8);
+            transition: transform 0.3s ease;
+        }
+        
+        .popup-container.show .popup {
+            transform: scale(1);
+        }
+        
+        .popup h3 {
+            margin-top: 0;
+            color: #4CAF50;
+            font-size: 24px;
+        }
+        
+        .popup.delete h3 {
+            color: #f44336;
+        }
+        
+        .popup p {
+            margin: 15px 0;
+            color: #666;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+        
+        .popup i {
+            font-size: 48px;
+            color: #4CAF50;
+            margin-bottom: 15px;
+        }
+        
+        .popup.delete i {
+            color: #f44336;
+        }
+    </style>
+</head>
+<body>
+    <h2>Admin Dashboard</h2>
+
+    <form id="quizForm" action="{{ url_for('admin_post_quiz') }}" method="post">
+        <label for="quiz_title">Quiz Title:</label>
+        <input type="text" id="quiz_title" name="quiz_title" required>
+
+        <label for="quiz_description">Quiz Description:</label>
+        <textarea id="quiz_description" name="quiz_description" required></textarea>
+
+        <label for="quiz_topics">Quiz Topics:</label>
+        <input type="text" id="quiz_topics" name="quiz_topics" required>
+
+        <label for="quiz_category">Quiz Category:</label>
+        <select id="quiz_category" name="quiz_category" required>
+            <option value="">Select a category</option>
+            <option value="Math">Math</option>
+            <option value="Physics">Physics</option>
+            <option value="Chemistry">Chemistry</option>
+            <option value="Biology">Biology</option>
+            <option value="Engineering">Engineering</option>
+        </select>
+
+        <button type="submit">Post Quiz</button>
+    </form>
+
+    <h3>Posted Quizzes</h3>
+    <ul>
+        {% for quiz in quizzes %}
+        <li>
+            <h4>{{ quiz.title }}</h4>
+            <p>{{ quiz.description }}</p>
+            <p>Topics: {{ quiz.topics }}</p>
+            <p>Category: {{ quiz.category }}</p>
+            <span class="delete-btn" data-quiz-id="{{ quiz.id }}"><i class="fas fa-trash"></i></span>
+        </li>
+        {% endfor %}
+    </ul>
+
+    <!-- Success Popup -->
+    <div class="popup-container" id="successPopup">
+        <div class="popup">
+            <i class="fas fa-check-circle"></i>
+            <h3>Success!</h3>
+            <p>Your quiz has been successfully created.</p>
+            <button onclick="closePopup('successPopup')">OK</button>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Popup -->
+    <div class="popup-container" id="deletePopup">
+        <div class="popup delete">
+            <i class="fas fa-exclamation-circle"></i>
+            <h3>Delete Quiz?</h3>
+            <p>Are you sure you want to delete this quiz? This action cannot be undone.</p>
+            <div class="button-group">
+                <button class="cancel-btn" onclick="closePopup('deletePopup')">Cancel</button>
+                <button id="confirmDelete">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Show popup function
+        function showPopup(popupId) {
+            document.getElementById(popupId).classList.add('show');
+        }
+
+        // Close popup function
+        function closePopup(popupId) {
+            document.getElementById(popupId).classList.remove('show');
+        }
+
+        // Handle form submission
+        document.getElementById('quizForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            try {
+                const response = await fetch(this.action, {
+                    method: 'POST',
+                    body: new FormData(this)
+                });
+                
+                if (response.ok) {
+                    showPopup('successPopup');
+                    this.reset();
+                    // Optionally reload the page after a delay
+                    setTimeout(() => location.reload(), 2000);
+                } else {
+                    throw new Error('Failed to create quiz');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to create quiz. Please try again.');
+            }
+        });
+
+        // Handle delete button clicks
+        let quizToDelete = null;
+        document.querySelectorAll('.delete-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                quizToDelete = this.getAttribute('data-quiz-id');
+                showPopup('deletePopup');
+            });
+        });
+
+        // Handle delete confirmation
+        document.getElementById('confirmDelete').addEventListener('click', async function() {
+            if (!quizToDelete) return;
+            
+            try {
+                const response = await fetch(`/nimda/delete_quiz/${quizToDelete}`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    document.querySelector(`[data-quiz-id="${quizToDelete}"]`).parentElement.remove();
+                    closePopup('deletePopup');
+                } else {
+                    throw new Error('Failed to delete quiz');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to delete quiz. Please try again.');
+            }
+            
+            quizToDelete = null;
+        });
+    </script>
+</body>
+</html>
