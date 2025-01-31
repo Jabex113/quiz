@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STEM Dashboard - Campus</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        body {
+            background: #f3f4f6;
+        }
+
+        .navbar {
+            background: #6366f1;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .strand-badge {
+            background: rgba(255,255,255,0.2);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+
+        .logout-btn {
+            color: white;
+            text-decoration: none;
+            padding: 8px;
+            border-radius: 8px;
+            transition: background 0.3s ease;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        main {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        .quiz-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .quiz-card {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .quiz-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .quiz-banner {
+            height: 120px;
+            background: linear-gradient(45deg, #6366f1, #4f46e5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 2rem;
+        }
+
+        .quiz-content {
+            padding: 1.5rem;
+        }
+
+        .quiz-title {
+            font-size: 1.25rem;
+            color: #1f2937;
+            margin-bottom: 0.5rem;
+        }
+
+        .quiz-info {
+            color: #6b7280;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+
+        .quiz-topics {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 1rem;
+        }
+
+        .topic-tag {
+            background: #f3f4f6;
+            color: #4b5563;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+        }
+
+        .start-quiz {
+            background: #6366f1;
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: background 0.3s ease;
+        }
+
+        .start-quiz:hover {
+            background: #4f46e5;
+        }
+
+        .stats {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .stat {
+            flex: 1;
+            background: #f8fafc;
+            padding: 1rem;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #6366f1;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-label {
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+
+        .menu-section {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .menu-title {
+            font-size: 1.25rem;
+            color: #1f2937;
+            margin-bottom: 1rem;
+        }
+
+        .menu-items {
+            display: flex;
+            gap: 1rem;
+            overflow-x: auto;
+            padding-bottom: 1rem;
+        }
+
+        .menu-item {
+            background: #f3f4f6;
+            padding: 12px 20px;
+            border-radius: 8px;
+            color: #4b5563;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        .menu-item.active {
+            background: #6366f1;
+            color: white;
+        }
+
+        .menu-item:hover {
+            background: #e5e7eb;
+        }
+
+        .menu-item.active:hover {
+            background: #4f46e5;
+        }
+
+        @media (max-width: 768px) {
+            .quiz-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .stats {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="user-info">
+            <i class="fas fa-user-graduate"></i>
+            <span>{{ username }}</span>
+            <span class="strand-badge">{{ strand }}</span>
+        </div>
+        <a href="{{ url_for('logout') }}" class="logout-btn">
+            <i class="fas fa-sign-out-alt"></i>
+        </a>
+    </nav>
+
+    <main>
+        <div class="menu-section">
+            <h2 class="menu-title">Quick Access</h2>
+            <div class="menu-items">
+                <div class="menu-item active">All Quizzes</div>
+                <div class="menu-item">Math</div>
+                <div class="menu-item">Physics</div>
+                <div class="menu-item">Chemistry</div>
+                <div class="menu-item">Biology</div>
+                <div class="menu-item">Engineering</div>
+            </div>
+        </div>
+
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-value">15</div>
+                <div class="stat-label">Quizzes Taken</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value">85%</div>
+                <div class="stat-label">Average Score</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value">8</div>
+                <div class="stat-label">Perfect Scores</div>
+            </div>
+        </div>
+
+        <div class="quiz-grid">
+            <!-- Math Quiz -->
+            <div class="quiz-card">
+                <div class="quiz-banner">
+                    <i class="fas fa-square-root-alt"></i>
+                </div>
+                <div class="quiz-content">
+                    <h3 class="quiz-title">Advanced Calculus</h3>
+                    <p class="quiz-info">Test your knowledge in differential equations and complex analysis</p>
+                    <div class="quiz-topics">
+                        <span class="topic-tag">Derivatives</span>
+                        <span class="topic-tag">Integration</span>
+                        <span class="topic-tag">Series</span>
+                    </div>
+                    <button class="start-quiz">
+                        <span>Start Quiz</span>
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Physics Quiz -->
+            <div class="quiz-card">
+                <div class="quiz-banner">
+                    <i class="fas fa-atom"></i>
+                </div>
+                <div class="quiz-content">
+                    <h3 class="quiz-title">Quantum Mechanics</h3>
+                    <p class="quiz-info">Explore the fascinating world of quantum physics</p>
+                    <div class="quiz-topics">
+                        <span class="topic-tag">Wave Functions</span>
+                        <span class="topic-tag">Uncertainty</span>
+                        <span class="topic-tag">Spin</span>
+                    </div>
+                    <button class="start-quiz">
+                        <span>Start Quiz</span>
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Chemistry Quiz -->
+            <div class="quiz-card">
+                <div class="quiz-banner">
+                    <i class="fas fa-flask"></i>
+                </div>
+                <div class="quiz-content">
+                    <h3 class="quiz-title">Organic Chemistry</h3>
+                    <p class="quiz-info">Master the fundamentals of organic compounds and reactions</p>
+                    <div class="quiz-topics">
+                        <span class="topic-tag">Alkenes</span>
+                        <span class="topic-tag">Aromatics</span>
+                        <span class="topic-tag">Reactions</span>
+                    </div>
+                    <button class="start-quiz">
+                        <span>Start Quiz</span>
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Biology Quiz -->
+            <div class="quiz-card">
+                <div class="quiz-banner">
+                    <i class="fas fa-dna"></i>
+                </div>
+                <div class="quiz-content">
+                    <h3 class="quiz-title">Molecular Biology</h3>
+                    <p class="quiz-info">Deep dive into cellular processes and genetic mechanisms</p>
+                    <div class="quiz-topics">
+                        <span class="topic-tag">DNA</span>
+                        <span class="topic-tag">Proteins</span>
+                        <span class="topic-tag">Cell Cycle</span>
+                    </div>
+                    <button class="start-quiz">
+                        <span>Start Quiz</span>
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        document.querySelectorAll('.menu-item').forEach(item => {
+            item.addEventListener('click', function() {
+                document.querySelectorAll('.menu-item').forEach(i => i.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+
+        document.querySelectorAll('.start-quiz').forEach(button => {
+            button.addEventListener('click', function() {
+                alert('Quiz feature coming soon!');
+            });
+        });
+    </script>
+</body>
+</html>
