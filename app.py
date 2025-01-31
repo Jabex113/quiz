@@ -177,11 +177,11 @@ def verify_otp():
 
    users = load_users()
    users[signup_data['email']] = {
-       'username': signup_data['username'],
-       'password': generate_password_hash(signup_data['password'], method='sha256'),
-       'strand': signup_data['strand'],
-       'created_at': datetime.now().isoformat()
-   }
+    'username': signup_data['username'],
+    'password': generate_password_hash(signup_data['password'], method='sha256'),
+    'strand': signup_data['strand'],
+    'created_at': datetime.now().isoformat()
+}   
    save_users(users)
 
    session.pop('signup_data', None)
