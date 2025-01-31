@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        h2 {
+            color: #6366f1;
+            margin-bottom: 20px;
+        }
+        .otp-box {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .otp-code {
+            color: #6366f1;
+            font-size: 32px;
+            letter-spacing: 5px;
+            margin: 0;
+        }
+        .footer {
+            color: #666;
+            font-size: 12px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Welcome to Campus!</h2>
+        <p>Your verification code is:</p>
+        <div class="otp-box">
+            <h1 class="otp-code">{{ otp }}</h1>
+        </div>
+        <p>This code will expire in 10 minutes.</p>
+        <p class="footer">If you didn't request this code, please ignore this email.</p>
+    </div>
+</body>
+</html>
