@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ quiz.title }} - Quiz</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        body {
+            background: #f3f4f6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .quiz-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            max-width: 800px;
+            width: 100%;
+            padding: 30px;
+        }
+
+        .quiz-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 15px;
+        }
+
+        .quiz-title {
+            font-size: 1.5rem;
+            color: #1f2937;
+        }
+
+        .quiz-timer {
+            font-size: 1.2rem;
+            color: #6366f1;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .quiz-question {
+            margin-bottom: 20px;
+        }
+
+        .quiz-question h3 {
+            margin-bottom: 15px;
+            color: #333;
+            font-size: 1.1rem;
+        }
+
+        .quiz-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .quiz-option {
+            background: #f3f4f6;
+            border: 2px solid transparent;
+            padding: 15px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+        }
+
+        .quiz-option input[type="radio"] {
+            margin-right: 10px;
+            accent-color: #6366f1;
+        }
+
+        .quiz-option:hover {
+            border-color: #6366f1;
+        }
+
+        .quiz-option.selected {
+            background: #6366f1;
+            color: white;
+        }
+
+        .quiz-navigation {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+
+        .quiz-nav-btn {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .quiz-nav-btn:hover {
+            background: #4f46e5;
+        }
+
+        .quiz-nav-btn:disabled {
+            background: #a5b4fc;
+            cursor: not-allowed;
+        }
+
+        .quiz-progress {
+            margin-top: 15px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .progress-dot {
+            width: 10px;
+            height: 10px;
+            background: #e5e7eb;
+            border-radius: 50%;
+            transition: background 0.3s ease;
+        }
+
+        .progress-dot.active {
+            background: #6366f1;
+        }
+
+        @media (max-width: 600px) {
+            .quiz-options {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="quiz-container">
+        <div class="quiz-header">
+            <h2 class="quiz-title">{{ quiz.title }}</h2>
+            <div class="quiz-timer">
+                <i class="fas fa-clock"></i>
+                <span id="timer">30:00</span>
+            </div>
+        </div>
+
+        <form id="quizForm" action="{{ url_for('submit_quiz') }}" method="post">
+            <input type="hidden" name="quiz_id" value="{{ quiz.id }}">
+            
+            {% for index in range(quiz.questions|length) %}
+            <div class="quiz-question" id="question-{{ index }}" {% if index > 0 %}style="display:none;"{% endif %}>
+                <h3>{{ quiz.questions[index].question }}</h3>
+                <div class="quiz-options">
+                    {% for option_index in range(quiz.questions[index].options|length) %}
+                    <label class="quiz-option">
+                        <input type="radio" 
+                               name="question_{{ index }}" 
+                               value="{{ option_index }}"
+                               required>
+                        {{ quiz.questions[index].options[option_index] }}
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+
+            <div class="quiz-progress">
+                {% for index in range(quiz.questions|length) %}
+                <div class="progress-dot {% if index == 0 %}active{% endif %}"></div>
+                {% endfor %}
+            </div>
+
+            <div class="quiz-navigation">
+                <button type="button" id="prevBtn" class="quiz-nav-btn" disabled onclick="changeQuestion(-1)">
+                    <i class="fas fa-arrow-left"></i> Previous
+                </button>
+                <button type="button" id="nextBtn" class="quiz-nav-btn" onclick="changeQuestion(1)">
+                    Next <i class="fas fa-arrow-right"></i>
+                </button>
+                <button type="submit" id="submitBtn" class="quiz-nav-btn" style="display:none;">
+                    Submit Quiz <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        let currentQuestion = 0;
+        const totalQuestions = {{ quiz.questions|length }};
+        const questions = document.querySelectorAll('.quiz-question');
+        const progressDots = document.querySelectorAll('.progress-dot');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const submitBtn = document.getElementById('submitBtn');
+        const timerDisplay = document.getElementById('timer');
+
+        function changeQuestion(direction) {
+            // Hide current question
+            questions[currentQuestion].style.display = 'none';
+            progressDots[currentQuestion].classList.remove('active');
+            
+            // Update current question index
+            currentQuestion += direction;
+            
+            // Show new question
+            questions[currentQuestion].style.display = 'block';
+            progressDots[currentQuestion].classList.add('active');
+            
+            // Update navigation buttons
+            updateNavigationButtons();
+        }
+
+        function updateNavigationButtons() {
+            // Previous button
+            prevBtn.disabled = currentQuestion === 0;
+            
+            // Next/Submit button
+            if (currentQuestion === totalQuestions - 1) {
+                nextBtn.style.display = 'none';
+                submitBtn.style.display = 'flex';
+            } else {
+                nextBtn.style.display = 'flex';
+                submitBtn.style.display = 'none';
+            }
+        }
+
+        // Timer functionality
+        let timeLeft = 30 * 60; // 30 minutes
+        const timerInterval = setInterval(() => {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            
+            timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                document.getElementById('quizForm').submit(); // Auto submit
+            }
+            
+            timeLeft--;
+        }, 1000);
+
+        // Initialize navigation
+        updateNavigationButtons();
+
+        // Optional: Highlight selected option
+        document.querySelectorAll('.quiz-option').forEach(option => {
+            option.addEventListener('click', function() {
+                // Remove selected class from all options in this question
+                this.closest('.quiz-question')
+                    .querySelectorAll('.quiz-option')
+                    .forEach(opt => opt.classList.remove('selected'));
+                
+                // Add selected class to clicked option
+                this.classList.add('selected');
+            });
+        });
+    </script>
+</body>
+</html>

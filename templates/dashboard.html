@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>STEM Dashboard - Campus</title>
+    <title>{{ strand }} Dashboard - Campus</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-          * {
+        * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
@@ -58,11 +58,80 @@
             padding: 0 1rem;
         }
 
+        .menu-section {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .menu-title {
+            font-size: 1.25rem;
+            color: #1f2937;
+            margin-bottom: 1rem;
+        }
+
+        .menu-items {
+            display: flex;
+            gap: 1rem;
+            overflow-x: auto;
+            padding-bottom: 1rem;
+        }
+
+        .menu-item {
+            background: #f3f4f6;
+            padding: 12px 20px;
+            border-radius: 8px;
+            color: #4b5563;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        .menu-item.active {
+            background: #6366f1;
+            color: white;
+        }
+
+        .menu-item:hover {
+            background: #e5e7eb;
+        }
+
+        .menu-item.active:hover {
+            background: #4f46e5;
+        }
+
+        .stats {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat {
+            flex: 1;
+            background: white;
+            padding: 1.5rem;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #6366f1;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-label {
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+
         .quiz-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 1.5rem;
-            margin-top: 2rem;
         }
 
         .quiz-card {
@@ -139,81 +208,17 @@
             background: #4f46e5;
         }
 
-        .stats {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 1rem;
-        }
-
-        .stat {
-            flex: 1;
-            background: #f8fafc;
-            padding: 1rem;
-            border-radius: 10px;
-            text-align: center;
-        }
-
-        .stat-value {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: #6366f1;
-            margin-bottom: 0.25rem;
-        }
-
-        .stat-label {
-            color: #6b7280;
-            font-size: 0.9rem;
-        }
-
-        .menu-section {
+        .no-quizzes {
             background: white;
+            padding: 2rem;
+            text-align: center;
             border-radius: 15px;
-            padding: 1.5rem;
-            margin-bottom: 2rem;
-        }
-
-        .menu-title {
-            font-size: 1.25rem;
-            color: #1f2937;
-            margin-bottom: 1rem;
-        }
-
-        .menu-items {
-            display: flex;
-            gap: 1rem;
-            overflow-x: auto;
-            padding-bottom: 1rem;
-        }
-
-        .menu-item {
-            background: #f3f4f6;
-            padding: 12px 20px;
-            border-radius: 8px;
-            color: #4b5563;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            white-space: nowrap;
-        }
-
-        .menu-item.active {
-            background: #6366f1;
-            color: white;
-        }
-
-        .menu-item:hover {
-            background: #e5e7eb;
-        }
-
-        .menu-item.active:hover {
-            background: #4f46e5;
+            grid-column: 1 / -1;
         }
 
         @media (max-width: 768px) {
-            .quiz-grid {
+            .quiz-grid, .stats {
                 grid-template-columns: 1fr;
-            }
-
-            .stats {
                 flex-direction: column;
             }
         }
@@ -236,72 +241,93 @@
             <h2 class="menu-title">Quick Access</h2>
             <div class="menu-items">
                 <div class="menu-item active">All Quizzes</div>
-                <div class="menu-item">Math</div>
-                <div class="menu-item">Physics</div>
-                <div class="menu-item">Chemistry</div>
-                <div class="menu-item">Biology</div>
-                <div class="menu-item">Engineering</div>
+                {% for category in categories %}
+                <div class="menu-item">{{ category }}</div>
+                {% endfor %}
             </div>
         </div>
 
         <div class="stats">
             <div class="stat">
-                <div class="stat-value">15</div>
+                <div class="stat-value">{{ total_quizzes|default(0) }}</div>
                 <div class="stat-label">Quizzes Taken</div>
             </div>
             <div class="stat">
-                <div class="stat-value">85%</div>
+                <div class="stat-value">{{ "%.1f"|format(average_score)|default('0.0') }}%</div>
                 <div class="stat-label">Average Score</div>
             </div>
             <div class="stat">
-                <div class="stat-value">8</div>
+                <div class="stat-value">{{ perfect_scores|default(0) }}</div>
                 <div class="stat-label">Perfect Scores</div>
             </div>
         </div>
 
         <div class="quiz-grid">
-            {% for quiz in quizzes %}
-            <div class="quiz-card">
-                <div class="quiz-banner">
-                    {% if quiz.title == 'Advanced Calculus' %}
-                    <i class="fas fa-square-root-alt"></i>
-                    {% elif quiz.title == 'Quantum Mechanics' %}
-                    <i class="fas fa-atom"></i>
-                    {% elif quiz.title == 'Organic Chemistry' %}
-                    <i class="fas fa-flask"></i>
-                    {% elif quiz.title == 'Molecular Biology' %}
-                    <i class="fas fa-dna"></i>
-                    {% endif %}
-                </div>
-                <div class="quiz-content">
-                    <h3 class="quiz-title">{{ quiz.title }}</h3>
-                    <p class="quiz-info">{{ quiz.description }}</p>
-                    <div class="quiz-topics">
-                        {% for topic in quiz.topics.split(',') %}
-                        <span class="topic-tag">{{ topic }}</span>
-                        {% endfor %}
+            {% if quizzes %}
+                {% for quiz in quizzes %}
+                <div class="quiz-card">
+                    <div class="quiz-banner">
+                        <i class="fas {{ quiz.icon }}"></i>
                     </div>
-                    <button class="start-quiz">
-                        <span>Start Quiz</span>
-                        <i class="fas fa-arrow-right"></i>
-                    </button>
+                    <div class="quiz-content">
+                        <h3 class="quiz-title">{{ quiz.title }}</h3>
+                        <p class="quiz-info">{{ quiz.description }}</p>
+                        <div class="quiz-topics">
+                            {% for topic in quiz.topics.split(',') %}
+                            <span class="topic-tag">{{ topic.strip() }}</span>
+                            {% endfor %}
+                        </div>
+                        <button class="start-quiz" onclick="window.location.href='{{ url_for('start_quiz', quiz_id=quiz.id) }}'">
+                            <span>Start Quiz</span>
+                            <i class="fas fa-arrow-right"></i>
+                        </button>
+                    </div>
                 </div>
-            </div>
-            {% endfor %}
+                {% endfor %}
+            {% else %}
+                <div class="no-quizzes">
+                    <h3>No Quizzes Available</h3>
+                    <p>There are currently no quizzes for your strand. Check back later!</p>
+                </div>
+            {% endif %}
         </div>
     </main>
 
     <script>
         document.querySelectorAll('.menu-item').forEach(item => {
             item.addEventListener('click', function() {
-                document.querySelectorAll('.menu-item').forEach(i => i.classList.remove('active'));
+                // Remove active class from all menu items
+                document.querySelectorAll('.menu-item').forEach(i => {
+                    i.classList.remove('active');
+                });
+                
+                // Add active class to clicked item
                 this.classList.add('active');
+
+                // Optional: Add filtering logic here if needed
+                const selectedCategory = this.textContent.trim();
+                filterQuizzes(selectedCategory);
             });
+
+            function filterQuizzes(category) {
+                const quizCards = document.querySelectorAll('.quiz-card');
+                
+                // If 'All Quizzes' is selected, show all quizzes
+                if (category === 'All Quizzes') {
+                    quizCards.forEach(card => card.style.display = '');
+                    return;
+                }
+
+                quizCards.forEach(card => {
+                    const topicTags = card.querySelectorAll('.topic-tag');
+                    const matchFound = Array.from(topicTags).some(tag => 
+                        tag.textContent.trim() === category
+                    );
+
+                    card.style.display = matchFound ? '' : 'none';
+                });
+            }
         });
-        document.querySelectorAll('.start-quiz').forEach(button => {
-        button.addEventListener('click', function() {
-            alert('Quiz feature coming soon!');
-        });
-    });
-</script>
-            
+    </script>
+</body>
+</html>

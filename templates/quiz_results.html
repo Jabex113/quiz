@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Results - {{ quiz.title }}</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        body {
+            background: #f3f4f6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .results-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            max-width: 600px;
+            width: 100%;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .result-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+        }
+
+        .result-passed {
+            color: #10b981; /* Green for pass */
+        }
+
+        .result-failed {
+            color: #ef4444; /* Red for fail */
+        }
+
+        .score-details {
+            margin: 20px 0;
+        }
+
+        .score-percentage {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #6366f1;
+            margin-bottom: 10px;
+        }
+
+        .grade-text {
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            color: #4b5563;
+        }
+
+        .quiz-details {
+            background: #f3f4f6;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .quiz-details h3 {
+            color: #1f2937;
+            margin-bottom: 10px;
+        }
+
+        .quiz-details p {
+            color: #6b7280;
+            margin: 5px 0;
+        }
+
+        .action-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            border-radius: 8px;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            font-size: 1rem;
+        }
+
+        .btn-primary {
+            background: #6366f1;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #4f46e5;
+        }
+
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #1f2937;
+            border: 1px solid #e5e7eb;
+        }
+
+        .btn-secondary:hover {
+            background: #e5e7eb;
+        }
+
+        .question-review {
+            margin-top: 20px;
+            text-align: left;
+        }
+
+        .question-review h4 {
+            color: #1f2937;
+            margin-bottom: 15px;
+        }
+
+        .review-item {
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .review-item.correct {
+            border-left: 4px solid #10b981;
+        }
+
+        .review-item.incorrect {
+            border-left: 4px solid #ef4444;
+        }
+
+        .review-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .review-status {
+            font-weight: bold;
+        }
+
+        .correct .review-status {
+            color: #10b981;
+        }
+
+        .incorrect .review-status {
+            color: #ef4444;
+        }
+    </style>
+</head>
+<body>
+    <div class="results-container">
+        {% if score_percentage >= 60 %}
+        <div class="result-icon result-passed">
+            <i class="fas fa-trophy"></i>
+        </div>
+        {% else %}
+        <div class="result-icon result-failed">
+            <i class="fas fa-times-circle"></i>
+        </div>
+        {% endif %}
+
+        <div class="score-details">
+            <div class="score-percentage">
+                {{ "%.1f"|format(score_percentage) }}%
+            </div>
+            
+            {% if score_percentage >= 90 %}
+            <div class="grade-text">Excellent! You scored an A.</div>
+            {% elif score_percentage >= 80 %}
+            <div class="grade-text">Great Job! You scored a B.</div>
+            {% elif score_percentage >= 60 %}
+            <div class="grade-text">Good Effort! You scored a C.</div>
+            {% else %}
+            <div class="grade-text">Need Improvement. You did not pass.</div>
+            {% endif %}
+        </div>
+
+        <div class="quiz-details">
+            <h3>{{ quiz.title }}</h3>
+            <p>Total Questions: {{ total }}</p>
+            <p>Correct Answers: {{ score }}</p>
+        </div>
+
+        <div class="question-review">
+            <h4>Question Review</h4>
+            {% for index in range(quiz.questions|length) %}
+            <div class="review-item {% if index < score %}correct{% else %}incorrect{% endif %}">
+                <div class="review-item-header">
+                    <strong>Question {{ index + 1 }}</strong>
+                    <span class="review-status">
+                        {% if index < score %}Correct{% else %}Incorrect{% endif %}
+                    </span>
+                </div>
+                <p>{{ quiz.questions[index].question }}</p>
+                <p>
+                    <strong>Correct Answer:</strong> 
+                    {{ quiz.questions[index].options[quiz.questions[index].correct_answer] }}
+                </p>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="action-buttons">
+            <a href="{{ url_for('dashboard') }}" class="btn btn-primary">
+                Back to Dashboard
+            </a>
+            <a href="{{ url_for('start_quiz', quiz_id=quiz.id) }}" class="btn btn-secondary">
+                Retake Quiz
+            </a>
+        </div>
+    </div>
+</body>
+</html>

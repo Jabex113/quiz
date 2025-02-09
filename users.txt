@@ -1,0 +1,46 @@
+{
+  "jabezllave@gmail.com": {
+    "username": "jabezllave@gmail.com",
+    "password": "pbkdf2:sha256:1000000$51zLVnft$43d0d3b4230c0e364ffe011a27be7209c88122d6d07082bc3448d5bbf78f015c",
+    "strand": "STEM",
+    "created_at": "2025-02-09T19:13:33.152919",
+    "quiz_history": [
+      {
+        "quiz_id": "2586",
+        "quiz_title": "test",
+        "score": 100.0,
+        "date": "2025-02-09T20:07:27.496265"
+      },
+      {
+        "quiz_id": "2586",
+        "quiz_title": "test",
+        "score": 0.0,
+        "date": "2025-02-09T20:11:34.862440"
+      },
+      {
+        "quiz_id": "2586",
+        "quiz_title": "test",
+        "score": 100.0,
+        "date": "2025-02-09T20:11:45.245810"
+      },
+      {
+        "quiz_id": "2586",
+        "quiz_title": "test",
+        "score": 0.0,
+        "date": "2025-02-09T20:11:57.813981"
+      },
+      {
+        "quiz_id": "7735",
+        "quiz_title": "test po",
+        "score": 0.0,
+        "date": "2025-02-09T20:16:13.262253"
+      },
+      {
+        "quiz_id": "7735",
+        "quiz_title": "test po",
+        "score": 100.0,
+        "date": "2025-02-09T20:16:19.574099"
+      }
+    ]
+  }
+}
