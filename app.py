@@ -261,6 +261,10 @@ def dashboard():
 
     # Calculate user's quiz statistics
     user_quiz_history = users[session['user_email']].get('quiz_history', [])
+    
+    # Get IDs of completed quizzes
+    user_completed_quizzes = [attempt['quiz_id'] for attempt in user_quiz_history]
+    
     total_quizzes = len(user_quiz_history)
     average_score = sum(quiz['score'] for quiz in user_quiz_history) / total_quizzes if total_quizzes > 0 else 0
     perfect_scores = sum(1 for quiz in user_quiz_history if quiz['score'] == 100)
@@ -269,6 +273,8 @@ def dashboard():
                        username=session['username'],
                        strand=session['strand'],
                        quizzes=strand_quizzes,
+                       categories=get_strand_categories(strand),
+                       user_completed_quizzes=user_completed_quizzes,
                        total_quizzes=total_quizzes,
                        average_score=average_score,
                        perfect_scores=perfect_scores)
@@ -277,6 +283,16 @@ def dashboard():
 def start_quiz(quiz_id):
     if 'user_email' not in session:
         return redirect(url_for('index'))
+
+    users = load_users()
+    user_email = session['user_email']
+    
+    # Check if user has already taken this quiz
+    if 'quiz_history' in users[user_email]:
+        for attempt in users[user_email]['quiz_history']:
+            if attempt['quiz_id'] == quiz_id:
+                flash('You have already completed this quiz', 'error')
+                return redirect(url_for('dashboard'))
 
     quizzes = load_quizzes()
     quiz = next((q for q in quizzes if q['id'] == quiz_id), None)

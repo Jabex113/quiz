@@ -264,32 +264,41 @@
 
         <div class="quiz-grid">
             {% if quizzes %}
-                {% for quiz in quizzes %}
-                <div class="quiz-card">
-                    <div class="quiz-banner">
-                        <i class="fas {{ quiz.icon }}"></i>
-                    </div>
-                    <div class="quiz-content">
-                        <h3 class="quiz-title">{{ quiz.title }}</h3>
-                        <p class="quiz-info">{{ quiz.description }}</p>
-                        <div class="quiz-topics">
-                            {% for topic in quiz.topics.split(',') %}
-                            <span class="topic-tag">{{ topic.strip() }}</span>
-                            {% endfor %}
-                        </div>
-                        <button class="start-quiz" onclick="window.location.href='{{ url_for('start_quiz', quiz_id=quiz.id) }}'">
-                            <span>Start Quiz</span>
-                            <i class="fas fa-arrow-right"></i>
-                        </button>
-                    </div>
+            {% for quiz in quizzes %}
+            <div class="quiz-card {% if quiz.id in user_completed_quizzes %}quiz-completed{% endif %}">
+                <div class="quiz-banner">
+                    <i class="fas {{ quiz.icon }}"></i>
+                    {% if quiz.id in user_completed_quizzes %}
+                    <div class="completed-overlay">Completed</div>
+                    {% endif %}
                 </div>
-                {% endfor %}
-            {% else %}
-                <div class="no-quizzes">
-                    <h3>No Quizzes Available</h3>
-                    <p>There are currently no quizzes for your strand. Check back later!</p>
+                <div class="quiz-content">
+                    <h3 class="quiz-title">{{ quiz.title }}</h3>
+                    <p class="quiz-info">{{ quiz.description }}</p>
+                    <div class="quiz-topics">
+                        {% for topic in quiz.topics.split(',') %}
+                        <span class="topic-tag">{{ topic.strip() }}</span>
+                        {% endfor %}
+                    </div>
+                    {% if quiz.id in user_completed_quizzes %}
+                    <button class="start-quiz" disabled>
+                        Quiz Completed
+                    </button>
+                    {% else %}
+                    <button class="start-quiz" onclick="window.location.href='{{ url_for('start_quiz', quiz_id=quiz.id) }}'">
+                        <span>Start Quiz</span>
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
+                    {% endif %}
                 </div>
-            {% endif %}
+            </div>
+            {% endfor %}
+                {% else %}
+                    <div class="no-quizzes">
+                        <h3>No Quizzes Available</h3>
+                        <p>There are currently no quizzes for your strand. Check back later!</p>
+                    </div>
+                {% endif %}
         </div>
     </main>
 

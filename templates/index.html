@@ -1,75 +1,257 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Campus</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <title>Campus - Login</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-image: url("{{ url_for('static', filename='images/bg.jpg') }}");
+            background-size: cover;
+            background-position: center bottom 80%;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            padding: 0 20px;
+        }
+
+        .logo {
+            position: absolute;
+            top: -80px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100px;
+            height: 100px;
+            background-image: url("{{ url_for('static', filename='images/logo.jpg') }}");
+            background-size: contain;
+            background-position: center;
+            background-repeat: no-repeat;
+            border-radius: 50%;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+
+        .auth-wrapper {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            padding: 40px 30px;
+            position: relative;
+        }
+
+        .auth-header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .auth-header h2 {
+            color: #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .welcome-icon {
+            color: #8B4513;
+            margin-right: 10px;
+        }
+
+        .input-group {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .input-group input,
+        .input-group select {
+            width: 100%;
+            padding: 12px 40px 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            background-color: #f0f4f8;
+            transition: all 0.3s ease;
+        }
+
+        .input-group input:focus,
+        .input-group select:focus {
+            outline: none;
+            border-color: #8B4513;
+            box-shadow: 0 0 0 2px rgba(139,69,19,0.2);
+        }
+
+        .input-group i {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            right: 15px;
+            color: #999;
+            transition: color 0.3s ease;
+        }
+
+        .toggle-password {
+            right: 45px;
+            cursor: pointer;
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 12px;
+            background-color: #8B4513;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: background-color 0.3s ease;
+        }
+
+        .btn-submit:hover {
+            background-color: #6B3E23;
+        }
+
+        .switch-form {
+            text-align: center;
+            margin-top: 15px;
+            color: #666;
+        }
+
+        .switch-form a {
+            color: #8B4513;
+            text-decoration: none;
+            font-weight: bold;
+            transition: color 0.3s ease;
+        }
+
+        .switch-form a:hover {
+            color: #6B3E23;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .alert {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 15px;
+            border-radius: 8px;
+            z-index: 1000;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .alert-error {
+            background-color: #ff6b6b;
+            color: white;
+        }
+
+        .alert-success {
+            background-color: #4ecdc4;
+            color: white;
+        }
+    </style>
 </head>
-
 <body>
-    
     <div class="container">
-        <div class="auth-form" id="login-form">
-            <h2><i class="fas fa-sign-in-alt"></i> Welcome Back</h2>
-            <form action="{{ url_for('login') }}" method="POST">
-                <div class="input-group">
-                    <input type="email" name="email" placeholder="School Email" required>
-                    <i class="fas fa-envelope"></i>
+        <div class="logo"></div>
+        
+        <div class="auth-wrapper">
+            <!-- Login Form -->
+            <div class="auth-form" id="login-form">
+                <div class="auth-header">
+                    <h2>
+                        <i class="fas fa-sign-in-alt welcome-icon"></i> 
+                        Welcome Back
+                    </h2>
                 </div>
-                <div class="input-group">
-                    <input type="password" name="password" placeholder="Password" required>
-                    <i class="fas fa-lock"></i>
-                    <i class="fas fa-eye-slash toggle-password"></i>
+                <form action="{{ url_for('login') }}" method="POST">
+                    <div class="input-group">
+                        <input type="email" name="email" placeholder="School Email" required>
+                        <i class="fas fa-envelope"></i>
+                    </div>
+                    <div class="input-group">
+                        <input type="password" name="password" placeholder="Password" required>
+                        <i class="fas fa-lock"></i>
+                        <i class="fas fa-eye-slash toggle-password"></i>
+                    </div>
+                    <button type="submit" class="btn-submit">
+                        <span>Login</span>
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
+                </form>
+                <p class="switch-form">
+                    New to Campus? <a href="#" onclick="toggleForm('signup')">Create Account</a>
+                </p>
+            </div>
+
+            <!-- Signup Form -->
+            <div class="auth-form hidden" id="signup-form">
+                <div class="auth-header">
+                    <h2>
+                        <i class="fas fa-user-plus welcome-icon"></i> 
+                        Create Account
+                    </h2>
                 </div>
-                <button type="submit" class="btn-submit">
-                    <span>Login</span>
-                    <i class="fas fa-arrow-right"></i>
-                </button>
-            </form>
-            <p class="switch-form">
-                New to Campus? <a href="#" onclick="toggleForm('signup')">Create Account</a>
-            </p>
+                <form action="{{ url_for('signup') }}" method="POST">
+                    <div class="input-group">
+                        <input type="text" name="username" placeholder="Username" required>
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div class="input-group">
+                        <input type="email" name="email" placeholder="School Email" required>
+                        <i class="fas fa-envelope"></i>
+                    </div>
+                    <div class="input-group">
+                        <select name="strand" required>
+                            <option value="">Select Your Strand</option>
+                            <option value="STEM">STEM</option>
+                            <option value="HUMSS">HUMSS</option>
+                            <option value="ICT">ICT</option>
+                            <option value="TVL">TVL</option>
+                        </select>
+                        <i class="fas fa-graduation-cap"></i>
+                    </div>
+                    <div class="input-group">
+                        <input type="password" name="password" placeholder="Password" required>
+                        <i class="fas fa-lock"></i>
+                        <i class="fas fa-eye-slash toggle-password"></i>
+                    </div>
+                    <button type="submit" class="btn-submit">
+                        <span>Create Account</span>
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
+                </form>
+                <p class="switch-form">
+                    Already have an account? <a href="#" onclick="toggleForm('login')">Login</a>
+                </p>
+            </div>
         </div>
 
-        <div class="auth-form hidden" id="signup-form">
-            <h2><i class="fas fa-user-plus"></i> Create Account</h2>
-            <form action="{{ url_for('signup') }}" method="POST">
-                <div class="input-group">
-                    <input type="text" name="username" placeholder="Username" required>
-                    <i class="fas fa-user"></i>
-                </div>
-                <div class="input-group">
-                    <input type="email" name="email" placeholder="School Email" required>
-                    <i class="fas fa-envelope"></i>
-                </div>
-                <div class="input-group">
-                    <select name="strand" required>
-                        <option value="">Select Your Strand</option>
-                        <option value="STEM">STEM</option>
-                        <option value="HUMSS">HUMSS</option>
-                        <option value="ICT">ICT</option>
-                        <option value="TVL">TVL</option>
-                    </select>
-                    <i class="fas fa-graduation-cap"></i>
-                </div>
-                <div class="input-group">
-                    <input type="password" name="password" placeholder="Password" required>
-                    <i class="fas fa-lock"></i>
-                    <i class="fas fa-eye-slash toggle-password"></i>
-                </div>
-                <button type="submit" class="btn-submit">
-                    <span>Create Account</span>
-                    <i class="fas fa-arrow-right"></i>
-                </button>
-            </form>
-            <p class="switch-form">
-                Already have an account? <a href="#" onclick="toggleForm('login')">Login</a>
-            </p>
-        </div>
-
+        <!-- Flash Messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
@@ -77,15 +259,20 @@
                 {% endfor %}
             {% endif %}
         {% endwith %}
-        
     </div>
+
     <script>
         function toggleForm(formType) {
-            const forms = document.querySelectorAll('.auth-form');
-            forms.forEach(form => {
-                form.classList.add('hidden');
-            });
-            document.getElementById(formType + '-form').classList.remove('hidden');
+            const loginForm = document.getElementById('login-form');
+            const signupForm = document.getElementById('signup-form');
+            
+            if (formType === 'signup') {
+                loginForm.classList.add('hidden');
+                signupForm.classList.remove('hidden');
+            } else {
+                signupForm.classList.add('hidden');
+                loginForm.classList.remove('hidden');
+            }
         }
 
         document.querySelectorAll('.toggle-password').forEach(button => {
@@ -97,6 +284,12 @@
                 this.classList.toggle('fa-eye-slash');
             });
         });
+
+        // Auto-hide flash messages after 5 seconds
+        setTimeout(() => {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(alert => alert.style.display = 'none');
+        }, 5000);
     </script>
 </body>
 </html>
