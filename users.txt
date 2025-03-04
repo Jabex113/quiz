@@ -1,6 +1,6 @@
 {
   "jabezllave@gmail.com": {
-    "username": "jabezllave@gmail.com",
+    "username": "jabz",
     "password": "pbkdf2:sha256:1000000$51zLVnft$43d0d3b4230c0e364ffe011a27be7209c88122d6d07082bc3448d5bbf78f015c",
     "strand": "STEM",
     "created_at": "2025-02-09T19:13:33.152919",
@@ -58,6 +58,48 @@
         "quiz_title": "dfsvbdv",
         "score": 100.0,
         "date": "2025-02-11T04:44:32.681413"
+      },
+      {
+        "quiz_id": "4340",
+        "quiz_title": "test brah",
+        "score": 100.0,
+        "date": "2025-02-12T20:31:17.125049"
+      },
+      {
+        "quiz_id": "2013",
+        "quiz_title": "test",
+        "score": 0.0,
+        "date": "2025-02-12T20:44:36.056272"
+      },
+      {
+        "quiz_id": "7574",
+        "quiz_title": "test",
+        "score": 0.0,
+        "date": "2025-02-12T21:28:59.094478"
+      },
+      {
+        "quiz_id": "4094",
+        "quiz_title": "test",
+        "score": 0.0,
+        "date": "2025-02-12T22:03:53.009731"
+      },
+      {
+        "quiz_id": "2852",
+        "quiz_title": "daSFADVS",
+        "score": 0.0,
+        "date": "2025-03-04T05:52:23.286504"
+      },
+      {
+        "quiz_id": "4875",
+        "quiz_title": "Test",
+        "score": 50.0,
+        "date": "2025-03-04T06:04:41.528279"
+      },
+      {
+        "quiz_id": "8341",
+        "quiz_title": "fadsbf",
+        "score": 0.0,
+        "date": "2025-03-04T06:10:22.069716"
       }
     ]
   }

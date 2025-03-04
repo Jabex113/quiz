@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account Settings - Campus</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        body {
+            background: #f3f4f6;
+        }
+
+        .navbar {
+            background: #6366f1;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .strand-badge {
+            background: rgba(255,255,255,0.2);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+
+        .nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .nav-link {
+            color: white;
+            text-decoration: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            transition: background 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-link:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        main {
+            max-width: 1000px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        .page-title {
+            font-size: 1.5rem;
+            color: #1f2937;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .settings-container {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            gap: 2rem;
+        }
+
+        .settings-nav {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .settings-nav-item {
+            padding: 1rem 1.5rem;
+            border-left: 3px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #4b5563;
+        }
+
+        .settings-nav-item:hover {
+            background: #f9fafb;
+            color: #6366f1;
+        }
+
+        .settings-nav-item.active {
+            background: #f3f4f6;
+            border-left-color: #6366f1;
+            color: #6366f1;
+            font-weight: 500;
+        }
+
+        .settings-content {
+            background: white;
+            border-radius: 10px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .settings-section {
+            display: none;
+        }
+
+        .settings-section.active {
+            display: block;
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            color: #1f2937;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #4b5563;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: border-color 0.2s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .form-group .hint {
+            font-size: 0.875rem;
+            color: #6b7280;
+            margin-top: 0.5rem;
+        }
+
+        .submit-btn {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .submit-btn:hover {
+            background: #4f46e5;
+        }
+
+        .profile-header {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .profile-avatar {
+            width: 100px;
+            height: 100px;
+            background: #e5e7eb;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            color: #6366f1;
+        }
+
+        .profile-info h3 {
+            font-size: 1.5rem;
+            color: #1f2937;
+            margin-bottom: 0.25rem;
+        }
+
+        .profile-info p {
+            color: #6b7280;
+        }
+
+        .profile-details {
+            margin-top: 2rem;
+        }
+
+        .profile-item {
+            display: flex;
+            padding: 1rem 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .profile-label {
+            width: 150px;
+            font-weight: 500;
+            color: #4b5563;
+        }
+
+        .profile-value {
+            flex: 1;
+            color: #1f2937;
+        }
+
+        .notification-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .notification-info {
+            flex: 1;
+        }
+
+        .notification-title {
+            font-weight: 500;
+            color: #1f2937;
+            margin-bottom: 0.25rem;
+        }
+
+        .notification-desc {
+            color: #6b7280;
+            font-size: 0.875rem;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #e5e7eb;
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .toggle-slider {
+            background-color: #6366f1;
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(26px);
+        }
+
+        .privacy-option {
+            margin-bottom: 1.5rem;
+        }
+
+        .privacy-option h4 {
+            font-size: 1rem;
+            color: #1f2937;
+            margin-bottom: 0.5rem;
+        }
+
+        .privacy-option p {
+            color: #6b7280;
+            font-size: 0.875rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .radio-option {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .radio-option input[type="radio"] {
+            width: auto;
+        }
+
+        .danger-zone {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            border: 1px solid #ef4444;
+            border-radius: 8px;
+            background: #fef2f2;
+        }
+
+        .danger-zone h3 {
+            color: #b91c1c;
+            margin-bottom: 1rem;
+        }
+
+        .danger-zone p {
+            color: #7f1d1d;
+            margin-bottom: 1rem;
+        }
+
+        .danger-btn {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .danger-btn:hover {
+            background: #dc2626;
+        }
+
+        .flash-message {
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            border-radius: 6px;
+            font-weight: 500;
+        }
+
+        .flash-message.success {
+            background: #ecfdf5;
+            color: #065f46;
+            border: 1px solid #10b981;
+        }
+
+        .flash-message.error {
+            background: #fef2f2;
+            color: #b91c1c;
+            border: 1px solid #ef4444;
+        }
+
+        /* Notification styles */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: -400px; /* Start off-screen */
+            background-color: #ecfdf5; /* Light green background */
+            color: #065f46; /* Dark green text */
+            border: 1px solid #10b981; /* Green border */
+            padding: 16px 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 1000;
+            transition: right 0.5s ease-in-out;
+            max-width: 350px;
+            font-weight: 500;
+        }
+
+        .notification.show {
+            right: 20px; /* Slide in */
+        }
+
+        .notification-icon {
+            font-size: 1.5rem;
+            color: #10b981; /* Green icon */
+        }
+
+        .notification-content {
+            flex: 1;
+        }
+
+        .notification-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .notification-message {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .notification-close {
+            background: none;
+            border: none;
+            color: #065f46; /* Dark green */
+            cursor: pointer;
+            font-size: 1.2rem;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .notification-close:hover {
+            opacity: 1;
+        }
+
+        @media (max-width: 768px) {
+            .settings-container {
+                grid-template-columns: 1fr;
+            }
+
+            .settings-nav {
+                display: flex;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+
+            .settings-nav-item {
+                border-left: none;
+                border-bottom: 3px solid transparent;
+                padding: 1rem;
+            }
+
+            .settings-nav-item.active {
+                border-left-color: transparent;
+                border-bottom-color: #6366f1;
+            }
+
+            .profile-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Notification container (hidden by default) -->
+    <div id="notification" class="notification">
+        <div class="notification-icon">
+            <i class="fas fa-check-circle"></i>
+        </div>
+        <div class="notification-content">
+            <div class="notification-title">Success!</div>
+            <div class="notification-message">Account updated successfully.</div>
+        </div>
+        <button class="notification-close" onclick="hideNotification()">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+
+    <nav class="navbar">
+        <div class="user-info">
+            <i class="fas fa-user-graduate"></i>
+            <span>{{ username }}</span>
+            <span class="strand-badge">{{ strand }}</span>
+        </div>
+        <div class="nav-actions">
+            <a href="{{ url_for('dashboard') }}" class="nav-link">
+                <i class="fas fa-home"></i>
+                <span>Dashboard</span>
+            </a>
+            <a href="{{ url_for('logout') }}" class="nav-link">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Logout</span>
+            </a>
+        </div>
+    </nav>
+
+    <main>
+        <h1 class="page-title">Account Settings</h1>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash-message {{ category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="settings-container">
+            <div class="settings-nav">
+                <div class="settings-nav-item active" data-target="profile">
+                    <i class="fas fa-user"></i>
+                    <span>Profile</span>
+                </div>
+                <div class="settings-nav-item" data-target="account">
+                    <i class="fas fa-user-cog"></i>
+                    <span>Account</span>
+                </div>
+                <div class="settings-nav-item" data-target="password">
+                    <i class="fas fa-key"></i>
+                    <span>Password</span>
+                </div>
+                <div class="settings-nav-item" data-target="notifications">
+                    <i class="fas fa-bell"></i>
+                    <span>Notifications</span>
+                </div>
+                <div class="settings-nav-item" data-target="privacy">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>Privacy</span>
+                </div>
+            </div>
+
+            <div class="settings-content">
+                <!-- Profile Section -->
+                <div class="settings-section active" id="profile">
+                    <h2 class="section-title">Profile Information</h2>
+                    
+                    <div class="profile-header">
+                        <div class="profile-avatar">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div class="profile-info">
+                            <h3>{{ username }}</h3>
+                            <p>{{ session.user_email }}</p>
+                        </div>
+                    </div>
+
+                    <div class="profile-details">
+                        <div class="profile-item">
+                            <div class="profile-label">Username</div>
+                            <div class="profile-value">{{ username }}</div>
+                        </div>
+                        <div class="profile-item">
+                            <div class="profile-label">Email</div>
+                            <div class="profile-value">{{ session.user_email }}</div>
+                        </div>
+                        <div class="profile-item">
+                            <div class="profile-label">Strand</div>
+                            <div class="profile-value">{{ strand }}</div>
+                        </div>
+                        <div class="profile-item">
+                            <div class="profile-label">Account Created</div>
+                            <div class="profile-value">{{ account_created|default('N/A') }}</div>
+                        </div>
+                        <div class="profile-item">
+                            <div class="profile-label">Quizzes Completed</div>
+                            <div class="profile-value">{{ completed_quizzes }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Account Section -->
+                <div class="settings-section" id="account">
+                    <h2 class="section-title">Account Settings</h2>
+                    
+                    <form id="account-form" action="{{ url_for('update_account') }}" method="post">
+                        <div class="form-group">
+                            <label for="username">Username</label>
+                            <input type="text" id="username" name="username" value="{{ username }}" required>
+                            <div class="hint">This is how you'll appear to others in the system.</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="email">Email Address</label>
+                            <input type="email" id="email" name="email" value="{{ session.user_email }}" disabled>
+                            <div class="hint">Your email cannot be changed. Contact administration if needed.</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="strand">Strand</label>
+                            <select id="strand" name="strand" disabled>
+                                <option value="{{ strand }}" selected>{{ strand }}</option>
+                            </select>
+                            <div class="hint">Your strand is set by administration and cannot be changed.</div>
+                        </div>
+
+                        <button type="submit" class="submit-btn">Save Changes</button>
+                    </form>
+                </div>
+
+                <!-- Password Section -->
+                <div class="settings-section" id="password">
+                    <h2 class="section-title">Change Password</h2>
+                    
+                    <form action="{{ url_for('change_password') }}" method="post">
+                        <div class="form-group">
+                            <label for="current-password">Current Password</label>
+                            <input type="password" id="current-password" name="current_password" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="new-password">New Password</label>
+                            <input type="password" id="new-password" name="new_password" required>
+                            <div class="hint">Password must be at least 6 characters long.</div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="confirm-password">Confirm New Password</label>
+                            <input type="password" id="confirm-password" name="confirm_password" required>
+                        </div>
+                        
+                        <button type="submit" class="submit-btn">Change Password</button>
+                    </form>
+                </div>
+
+                <!-- Notifications Section -->
+                <div class="settings-section" id="notifications">
+                    <h2 class="section-title">Notification Preferences</h2>
+                    
+                    <div class="notification-item">
+                        <div class="notification-info">
+                            <div class="notification-title">New Quiz Notifications</div>
+                            <div class="notification-desc">Receive notifications when new quizzes are available for your strand.</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" name="quiz_notifications" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="notification-item">
+                        <div class="notification-info">
+                            <div class="notification-title">Quiz Results</div>
+                            <div class="notification-desc">Receive notifications when your quiz results are available.</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" name="result_notifications" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="notification-item">
+                        <div class="notification-info">
+                            <div class="notification-title">System Announcements</div>
+                            <div class="notification-desc">Receive important system announcements and updates.</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" name="system_notifications" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="notification-item">
+                        <div class="notification-info">
+                            <div class="notification-title">Email Notifications</div>
+                            <div class="notification-desc">Receive notifications via email.</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" name="email_notifications">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    
+                    <button type="submit" class="submit-btn" style="margin-top: 1.5rem;">Save Preferences</button>
+                </div>
+
+                <!-- Privacy Section -->
+                <div class="settings-section" id="privacy">
+                    <h2 class="section-title">Privacy Settings</h2>
+                    
+                    <div class="privacy-option">
+                        <h4>Quiz Results Visibility</h4>
+                        <p>Control who can see your quiz results and scores.</p>
+                        <div class="radio-group">
+                            <label class="radio-option">
+                                <input type="radio" name="results_visibility" value="private" checked>
+                                <span>Only Me</span>
+                            </label>
+                            <label class="radio-option">
+                                <input type="radio" name="results_visibility" value="teachers">
+                                <span>Teachers Only</span>
+                            </label>
+                            <label class="radio-option">
+                                <input type="radio" name="results_visibility" value="public">
+                                <span>Everyone</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="privacy-option">
+                        <h4>Profile Visibility</h4>
+                        <p>Control who can see your profile information.</p>
+                        <div class="radio-group">
+                            <label class="radio-option">
+                                <input type="radio" name="profile_visibility" value="private">
+                                <span>Only Me</span>
+                            </label>
+                            <label class="radio-option">
+                                <input type="radio" name="profile_visibility" value="school" checked>
+                                <span>School Members</span>
+                            </label>
+                            <label class="radio-option">
+                                <input type="radio" name="profile_visibility" value="public">
+                                <span>Everyone</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="submit-btn">Save Privacy Settings</button>
+                    
+                    <div class="danger-zone">
+                        <h3>Danger Zone</h3>
+                        <p>Once you delete your account, there is no going back. Please be certain.</p>
+                        <button type="button" class="danger-btn" onclick="confirmAccountDeletion()">Delete Account</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Tab switching functionality
+        document.querySelectorAll('.settings-nav-item').forEach(item => {
+            item.addEventListener('click', function() {
+                // Remove active class from all nav items and sections
+                document.querySelectorAll('.settings-nav-item').forEach(i => i.classList.remove('active'));
+                document.querySelectorAll('.settings-section').forEach(s => s.classList.remove('active'));
+
+                // Add active class to clicked item
+                this.classList.add('active');
+
+                // Show corresponding section
+                const targetId = this.getAttribute('data-target');
+                document.getElementById(targetId).classList.add('active');
+            });
+        });
+
+        // Notification functions
+        function showNotification(message = "Account updated successfully.") {
+            const notification = document.getElementById('notification');
+            const messageElement = notification.querySelector('.notification-message');
+
+            // Set the message
+            messageElement.textContent = message;
+
+            // Show the notification with animation
+            notification.classList.add('show');
+
+            // Auto-dismiss after 5 seconds
+            setTimeout(hideNotification, 5000);
+        }
+
+        function hideNotification() {
+            const notification = document.getElementById('notification');
+            notification.classList.remove('show');
+        }
+
+        // Account form submission with in-page notification
+        document.getElementById('account-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            // Create form data object
+            const formData = new FormData(this);
+
+            // Submit form using fetch API
+            fetch(this.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show success notification
+                    showNotification(data.message);
+
+                    // Update any displayed username on the page
+                    const usernameElements = document.querySelectorAll('.profile-value:first-child, .profile-info h3');
+                    const newUsername = document.getElementById('username').value;
+                    usernameElements.forEach(el => {
+                        el.textContent = newUsername;
+                    });
+
+                    // Update navbar username
+                    const navbarUsername = document.querySelector('.user-info span:first-of-type');
+                    if (navbarUsername) {
+                        navbarUsername.textContent = newUsername;
+                    }
+                } else {
+                    // Show error notification
+                    showNotification(data.message || 'An error occurred. Please try again.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                // If there's an error with fetch, submit the form normally
+                this.submit();
+            });
+        });
+
+        // Password validation
+        document.querySelector('form[action="{{ url_for('change_password') }}"]').addEventListener('submit', function(e) {
+            const newPassword = document.getElementById('new-password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+
+            if (newPassword !== confirmPassword) {
+                e.preventDefault();
+                alert('Passwords do not match. Please try again.');
+            }
+
+            if (newPassword.length < 6) {
+                e.preventDefault();
+                alert('Password must be at least 6 characters long.');
+            }
+        });
+
+        // Account deletion confirmation
+        function confirmAccountDeletion() {
+            const confirmed = confirm('Are you sure you want to delete your account? This action cannot be undone.');
+
+            if (confirmed) {
+                window.location.href = "{{ url_for('delete_account') }}";
+            }
+        }
+
+        // Auto-dismiss flash messages after 5 seconds with slide-out animation
+        document.addEventListener('DOMContentLoaded', function() {
+            const flashMessages = document.querySelectorAll('.flash-message');
+            if (flashMessages.length > 0) {
+                // Add transition properties
+                flashMessages.forEach(message => {
+                    message.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+                    message.style.transform = 'translateX(0)';
+                });
+
+                // Set timeout to remove messages
+                setTimeout(function() {
+                    flashMessages.forEach(message => {
+                        message.style.opacity = '0';
+                        message.style.transform = 'translateX(100%)';
+                        setTimeout(() => {
+                            message.remove();
+                        }, 500);
+                    });
+                }, 5000);
+            }
+
+            // Check if we were redirected back from a successful update
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('update') && urlParams.get('update') === 'success') {
+                // Clean up the URL without refreshing the page
+                const newUrl = window.location.pathname;
+                window.history.replaceState({}, document.title, newUrl);
+            }
+        });
+    </script>
+</body>
+</html>

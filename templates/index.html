@@ -5,31 +5,72 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Campus - Login</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --primary-color: #8B4513;
+            --primary-hover: #6B3E23;
+            --secondary-color: #4A90E2;
+            --text-color: #333;
+            --text-light: #666;
+            --bg-light: #f0f4f8;
+            --white: #fff;
+            --success: #4ecdc4;
+            --error: #ff6b6b;
+            --border-radius: 12px;
+            --box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Poppins', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
         body {
             background-image: url("{{ url_for('static', filename='images/bg.jpg') }}");
             background-size: cover;
-            background-position: center bottom 80%;
+            background-position: center;
             background-repeat: no-repeat;
             background-attachment: fixed;
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.2) 100%);
+            z-index: 0;
         }
 
         .container {
             position: relative;
             width: 100%;
-            max-width: 400px;
+            max-width: 420px;
             padding: 0 20px;
+            z-index: 1;
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0px) translateX(-50%); }
+            50% { transform: translateY(-10px) translateX(-50%); }
+            100% { transform: translateY(0px) translateX(-50%); }
         }
 
         .logo {
@@ -37,115 +78,195 @@
             top: -80px;
             left: 50%;
             transform: translateX(-50%);
-            width: 100px;
-            height: 100px;
+            width: 110px;
+            height: 110px;
             background-image: url("{{ url_for('static', filename='images/logo.jpg') }}");
-            background-size: contain;
+            background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
             border-radius: 50%;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
             z-index: 10;
+            animation: float 6s ease-in-out infinite;
+            border: 4px solid white;
         }
 
         .auth-wrapper {
-            background: rgba(255, 255, 255, 0.9);
-            border-radius: 15px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-            padding: 40px 30px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            padding: 50px 30px 40px;
             position: relative;
+            overflow: hidden;
+            transition: var(--transition);
+        }
+
+        .auth-wrapper::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 5px;
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
         }
 
         .auth-header {
             text-align: center;
-            margin-bottom: 25px;
+            margin-bottom: 30px;
         }
 
         .auth-header h2 {
-            color: #333;
+            color: var(--text-color);
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 10px;
+            gap: 12px;
+            font-weight: 600;
+            font-size: 1.8rem;
         }
 
         .welcome-icon {
-            color: #8B4513;
+            color: var(--primary-color);
             margin-right: 10px;
+            font-size: 1.5rem;
         }
 
         .input-group {
             position: relative;
-            margin-bottom: 20px;
+            margin-bottom: 24px;
         }
 
         .input-group input,
         .input-group select {
             width: 100%;
-            padding: 12px 40px 12px 15px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
+            padding: 14px 45px 14px 20px;
+            border: 2px solid transparent;
+            border-radius: var(--border-radius);
             font-size: 16px;
-            background-color: #f0f4f8;
-            transition: all 0.3s ease;
+            background-color: var(--bg-light);
+            transition: var(--transition);
+            color: var(--text-color);
+            font-weight: 500;
+        }
+
+        .input-group input::placeholder,
+        .input-group select::placeholder {
+            color: #999;
+            font-weight: 400;
         }
 
         .input-group input:focus,
         .input-group select:focus {
             outline: none;
-            border-color: #8B4513;
-            box-shadow: 0 0 0 2px rgba(139,69,19,0.2);
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 4px rgba(139,69,19,0.1);
+            background-color: var(--white);
         }
 
         .input-group i {
             position: absolute;
             top: 50%;
             transform: translateY(-50%);
-            right: 15px;
+            right: 20px;
             color: #999;
-            transition: color 0.3s ease;
+            transition: var(--transition);
+            font-size: 18px;
+        }
+
+        .input-group input:focus + i,
+        .input-group select:focus + i {
+            color: var(--primary-color);
         }
 
         .toggle-password {
-            right: 45px;
+            right: 50px;
             cursor: pointer;
+            z-index: 2;
+        }
+
+        .toggle-password:hover {
+            color: var(--primary-color);
         }
 
         .btn-submit {
             width: 100%;
-            padding: 12px;
-            background-color: #8B4513;
+            padding: 14px;
+            background: linear-gradient(to right, var(--primary-color), var(--primary-hover));
             color: white;
             border: none;
-            border-radius: 8px;
+            border-radius: var(--border-radius);
             font-size: 16px;
+            font-weight: 600;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 10px;
-            transition: background-color 0.3s ease;
+            transition: var(--transition);
+            box-shadow: 0 4px 15px rgba(139,69,19,0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-submit::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: 0.5s;
         }
 
         .btn-submit:hover {
-            background-color: #6B3E23;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(139,69,19,0.4);
+        }
+
+        .btn-submit:hover::before {
+            left: 100%;
+        }
+
+        .btn-submit:active {
+            transform: translateY(1px);
         }
 
         .switch-form {
             text-align: center;
-            margin-top: 15px;
-            color: #666;
+            margin-top: 20px;
+            color: var(--text-light);
+            font-weight: 500;
         }
 
         .switch-form a {
-            color: #8B4513;
+            color: var(--primary-color);
             text-decoration: none;
-            font-weight: bold;
-            transition: color 0.3s ease;
+            font-weight: 600;
+            transition: var(--transition);
+            position: relative;
+            padding-bottom: 2px;
+        }
+
+        .switch-form a::after {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 2px;
+            bottom: 0;
+            left: 0;
+            background-color: var(--primary-color);
+            transition: var(--transition);
         }
 
         .switch-form a:hover {
-            color: #6B3E23;
+            color: var(--primary-hover);
+        }
+
+        .switch-form a:hover::after {
+            width: 100%;
         }
 
         .hidden {
@@ -157,28 +278,287 @@
             top: 20px;
             left: 50%;
             transform: translateX(-50%);
-            padding: 15px;
-            border-radius: 8px;
+            padding: 15px 25px;
+            border-radius: var(--border-radius);
             z-index: 1000;
             text-align: center;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            box-shadow: var(--box-shadow);
+            animation: slideDown 0.5s ease-out forwards;
+            font-weight: 500;
+            min-width: 300px;
+        }
+
+        @keyframes slideDown {
+            from { transform: translateY(-50px) translateX(-50%); opacity: 0; }
+            to { transform: translateY(0) translateX(-50%); opacity: 1; }
         }
 
         .alert-error {
-            background-color: #ff6b6b;
+            background-color: var(--error);
             color: white;
+            border-left: 5px solid #e74c3c;
         }
 
         .alert-success {
-            background-color: #4ecdc4;
+            background-color: var(--success);
             color: white;
+            border-left: 5px solid #27ae60;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 480px) {
+            .container {
+                padding: 0 15px;
+            }
+
+            .auth-wrapper {
+                padding: 40px 20px 30px;
+            }
+
+            .auth-header h2 {
+                font-size: 1.5rem;
+            }
+
+            .logo {
+                width: 90px;
+                height: 90px;
+                top: -60px;
+            }
+        }
+
+        /* Particles animation */
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.5);
+            box-shadow: 0 0 10px 2px rgba(255, 255, 255, 0.2);
+            animation: float-particle 15s infinite linear;
+        }
+
+        .particle:nth-child(1) {
+            width: 80px;
+            height: 80px;
+            top: 10%;
+            left: 10%;
+            opacity: 0.2;
+            animation-duration: 25s;
+            animation-delay: 0s;
+        }
+
+        .particle:nth-child(2) {
+            width: 60px;
+            height: 60px;
+            top: 20%;
+            left: 80%;
+            opacity: 0.15;
+            animation-duration: 30s;
+            animation-delay: 1s;
+        }
+
+        .particle:nth-child(3) {
+            width: 40px;
+            height: 40px;
+            top: 80%;
+            left: 15%;
+            opacity: 0.1;
+            animation-duration: 22s;
+            animation-delay: 2s;
+        }
+
+        .particle:nth-child(4) {
+            width: 100px;
+            height: 100px;
+            top: 40%;
+            left: 5%;
+            opacity: 0.08;
+            animation-duration: 28s;
+            animation-delay: 3s;
+        }
+
+        .particle:nth-child(5) {
+            width: 50px;
+            height: 50px;
+            top: 70%;
+            left: 80%;
+            opacity: 0.12;
+            animation-duration: 20s;
+            animation-delay: 4s;
+        }
+
+        .particle:nth-child(6) {
+            width: 70px;
+            height: 70px;
+            top: 10%;
+            left: 50%;
+            opacity: 0.1;
+            animation-duration: 26s;
+            animation-delay: 5s;
+        }
+
+        .particle:nth-child(7) {
+            width: 30px;
+            height: 30px;
+            top: 50%;
+            left: 90%;
+            opacity: 0.15;
+            animation-duration: 24s;
+            animation-delay: 6s;
+        }
+
+        .particle:nth-child(8) {
+            width: 90px;
+            height: 90px;
+            top: 85%;
+            left: 40%;
+            opacity: 0.07;
+            animation-duration: 32s;
+            animation-delay: 7s;
+        }
+
+        @keyframes float-particle {
+            0% {
+                transform: translateY(0) translateX(0) rotate(0deg);
+            }
+            25% {
+                transform: translateY(-100px) translateX(100px) rotate(90deg);
+            }
+            50% {
+                transform: translateY(0) translateX(200px) rotate(180deg);
+            }
+            75% {
+                transform: translateY(100px) translateX(100px) rotate(270deg);
+            }
+            100% {
+                transform: translateY(0) translateX(0) rotate(360deg);
+            }
+        }
+
+        /* Form highlight effect */
+        .auth-wrapper:hover {
+            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+            transform: translateY(-5px);
+        }
+
+        /* Input field animation */
+        .input-group input:focus,
+        .input-group select:focus {
+            transform: translateY(-2px);
+        }
+
+        /* Button pulse effect */
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(139,69,19,0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(139,69,19,0); }
+            100% { box-shadow: 0 0 0 0 rgba(139,69,19,0); }
+        }
+
+        .btn-submit:focus {
+            animation: pulse 1.5s infinite;
+        }
+
+        /* Form transition animations */
+        .auth-form {
+            transition: transform 0.4s ease-in-out, opacity 0.4s ease-in-out;
+        }
+
+        #login-form.hidden {
+            transform: translateX(-20px);
+            opacity: 0;
+            display: none;
+        }
+
+        #signup-form.hidden {
+            transform: translateX(20px);
+            opacity: 0;
+            display: none;
+        }
+
+        /* Focus outline for accessibility */
+        input:focus, select:focus, button:focus, a:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(139,69,19,0.3);
+        }
+
+        /* Footer styles */
+        .page-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            padding: 15px 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+            color: white;
+            text-align: center;
+            font-size: 14px;
+            z-index: 10;
+        }
+
+        .footer-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 20px;
+        }
+
+        .footer-links a {
+            color: white;
+            text-decoration: none;
+            transition: var(--transition);
+            opacity: 0.8;
+        }
+
+        .footer-links a:hover {
+            opacity: 1;
+            transform: translateY(-2px);
+        }
+
+        @media (max-width: 480px) {
+            .footer-content {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .page-footer {
+                padding: 10px 0;
+            }
         }
     </style>
 </head>
 <body>
+    <!-- Background particles -->
+    <div class="particles">
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+    </div>
+
     <div class="container">
         <div class="logo"></div>
-        
+
         <div class="auth-wrapper">
             <!-- Login Form -->
             <div class="auth-form" id="login-form">
@@ -261,35 +641,176 @@
         {% endwith %}
     </div>
 
+    <!-- Footer -->
+    <footer class="page-footer">
+        <div class="footer-content">
+            <p>&copy; 2025 Campus Learning Platform</p>
+            <div class="footer-links">
+                <a href="#" title="About Us"><i class="fas fa-info-circle"></i></a>
+                <a href="#" title="Contact"><i class="fas fa-envelope"></i></a>
+                <a href="#" title="Privacy Policy"><i class="fas fa-shield-alt"></i></a>
+            </div>
+        </div>
+    </footer>
+
     <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize form animations and interactions
+            initForms();
+
+            // Handle password visibility toggle
+            initPasswordToggles();
+
+            // Handle flash messages
+            initFlashMessages();
+
+            // Add input focus effects
+            initInputEffects();
+        });
+
+        function initForms() {
+            // Pre-fill email field if coming from signup
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('email')) {
+                const emailField = document.querySelector('input[name="email"]');
+                if (emailField) {
+                    emailField.value = urlParams.get('email');
+                }
+            }
+
+            // Add button press effect
+            document.querySelectorAll('.btn-submit').forEach(button => {
+                button.addEventListener('mousedown', function() {
+                    this.style.transform = 'scale(0.98)';
+                });
+
+                button.addEventListener('mouseup', function() {
+                    this.style.transform = '';
+                });
+
+                button.addEventListener('mouseleave', function() {
+                    this.style.transform = '';
+                });
+            });
+        }
+
         function toggleForm(formType) {
             const loginForm = document.getElementById('login-form');
             const signupForm = document.getElementById('signup-form');
-            
-            if (formType === 'signup') {
-                loginForm.classList.add('hidden');
-                signupForm.classList.remove('hidden');
-            } else {
-                signupForm.classList.add('hidden');
-                loginForm.classList.remove('hidden');
+            const authWrapper = document.querySelector('.auth-wrapper');
+
+            // Add transition effect to container
+            authWrapper.style.transform = 'scale(0.98)';
+            authWrapper.style.opacity = '0.8';
+
+            setTimeout(() => {
+                if (formType === 'signup') {
+                    loginForm.classList.add('hidden');
+                    signupForm.classList.remove('hidden');
+                    document.title = 'Campus - Create Account';
+                } else {
+                    signupForm.classList.add('hidden');
+                    loginForm.classList.remove('hidden');
+                    document.title = 'Campus - Login';
+                }
+
+                // Reset and focus first input in visible form
+                const visibleForm = formType === 'signup' ? signupForm : loginForm;
+                const firstInput = visibleForm.querySelector('input');
+                if (firstInput) firstInput.focus();
+
+                // Restore container
+                setTimeout(() => {
+                    authWrapper.style.transform = '';
+                    authWrapper.style.opacity = '';
+                }, 50);
+            }, 200);
+        }
+
+        function initPasswordToggles() {
+            document.querySelectorAll('.toggle-password').forEach(button => {
+                button.addEventListener('click', function() {
+                    const input = this.previousElementSibling.previousElementSibling;
+                    const type = input.type === 'password' ? 'text' : 'password';
+                    input.type = type;
+
+                    // Animate icon change
+                    this.style.transform = 'scale(0.8)';
+                    setTimeout(() => {
+                        this.classList.toggle('fa-eye');
+                        this.classList.toggle('fa-eye-slash');
+                        this.style.transform = 'scale(1)';
+                    }, 100);
+                });
+            });
+        }
+
+        function initFlashMessages() {
+            const alerts = document.querySelectorAll('.alert');
+            if (alerts.length > 0) {
+                // Add close button to alerts
+                alerts.forEach(alert => {
+                    const closeBtn = document.createElement('span');
+                    closeBtn.innerHTML = '&times;';
+                    closeBtn.style.marginLeft = '10px';
+                    closeBtn.style.cursor = 'pointer';
+                    closeBtn.style.fontWeight = 'bold';
+                    closeBtn.style.fontSize = '20px';
+                    closeBtn.style.position = 'absolute';
+                    closeBtn.style.right = '15px';
+                    closeBtn.style.top = '50%';
+                    closeBtn.style.transform = 'translateY(-50%)';
+
+                    closeBtn.addEventListener('click', () => {
+                        hideAlert(alert);
+                    });
+
+                    alert.style.position = 'relative';
+                    alert.style.paddingRight = '40px';
+                    alert.appendChild(closeBtn);
+                });
+
+                // Auto-hide flash messages after 5 seconds
+                setTimeout(() => {
+                    alerts.forEach(alert => {
+                        hideAlert(alert);
+                    });
+                }, 5000);
             }
         }
 
-        document.querySelectorAll('.toggle-password').forEach(button => {
-            button.addEventListener('click', function() {
-                const input = this.previousElementSibling.previousElementSibling;
-                const type = input.type === 'password' ? 'text' : 'password';
-                input.type = type;
-                this.classList.toggle('fa-eye');
-                this.classList.toggle('fa-eye-slash');
-            });
-        });
+        function hideAlert(alert) {
+            alert.style.opacity = '0';
+            alert.style.transform = 'translateY(-20px) translateX(-50%)';
+            setTimeout(() => {
+                alert.style.display = 'none';
+            }, 300);
+        }
 
-        // Auto-hide flash messages after 5 seconds
-        setTimeout(() => {
-            const alerts = document.querySelectorAll('.alert');
-            alerts.forEach(alert => alert.style.display = 'none');
-        }, 5000);
+        function initInputEffects() {
+            // Add focus effects to input fields
+            const inputFields = document.querySelectorAll('input, select');
+
+            inputFields.forEach(input => {
+                input.addEventListener('focus', function() {
+                    const icon = this.nextElementSibling;
+                    if (icon) {
+                        icon.style.transform = 'translateY(-50%) scale(1.2)';
+                        icon.style.color = 'var(--primary-color)';
+                    }
+                });
+
+                input.addEventListener('blur', function() {
+                    const icon = this.nextElementSibling;
+                    if (icon) {
+                        icon.style.transform = 'translateY(-50%)';
+                        if (!this.value) {
+                            icon.style.color = '#999';
+                        }
+                    }
+                });
+            });
+        }
     </script>
 </body>
 </html>

@@ -4,7 +4,7 @@
     <title>Admin Dashboard</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body {
+body {
             font-family: Arial, sans-serif;
             background-color: #f4f4f4;
             margin: 0;
@@ -190,11 +190,14 @@
         }
 
         .question-block {
-            margin-bottom: 20px; 
-            padding: 15px; 
-            border: 1px solid #ddd; 
+            margin-bottom: 20px;
+            padding: 20px;
+            border: 1px solid #ddd;
             border-radius: 8px;
             position: relative;
+            background-color: #f9f9f9;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            border-left: 4px solid #4CAF50;
         }
 
         .question-block .remove-question-btn {
@@ -203,26 +206,77 @@
             right: 10px;
             color: #f44336;
             cursor: pointer;
+            font-size: 18px;
+            transition: transform 0.2s ease;
+        }
+
+        .question-block .remove-question-btn:hover {
+            transform: scale(1.2);
+            color: #d32f2f;
+        }
+
+        .question-block textarea {
+            font-size: 16px;
+            font-weight: 500;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 8px;
+            width: 100%;
+            resize: vertical;
+        }
+
+        .options-container {
+            margin-top: 15px;
+            background: #fff;
+            padding: 15px;
+            border-radius: 6px;
         }
 
         .options-container .option-input {
             display: flex;
             align-items: center;
-            margin: 5px 0;
+            margin: 10px 0;
+            background: #f3f4f6;
+            padding: 8px 12px;
+            border-radius: 6px;
+            transition: background 0.2s ease;
+        }
+
+        .options-container .option-input:hover {
+            background: #e5e7eb;
         }
 
         .options-container .option-input input[type="radio"] {
             margin-right: 10px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
         }
 
         .options-container .option-input input[type="text"] {
             flex-grow: 1;
+            border: none;
+            background: transparent;
+            padding: 8px;
+            font-size: 14px;
         }
-    </style>
+
+        #addQuestionBtn {
+            background-color: #2196F3;
+            margin-bottom: 20px;
+            width: 100%;
+        }
+
+        #addQuestionBtn:hover {
+            background-color: #1976D2;
+        }       </style>
 </head>
 <body>
     <h2>Admin Dashboard</h2>
 
+    <!-- Quiz Posting Form -->
     <form id="quizForm" action="{{ url_for('admin_post_quiz') }}" method="post">
         <label for="strand">Select Strand:</label>
         <select id="strand" name="strand" required>
@@ -260,15 +314,9 @@
             <p>Category: {{ quiz.category }}</p>
             <p>Strand: {{ quiz.strand }}</p>
             
-            {% if 'questions' not in quiz %}
             <span class="edit-btn" data-quiz-id="{{ quiz.id }}" data-quiz-title="{{ quiz.title }}">
-                <i class="fas fa-edit"></i> Add Questions
+                <i class="fas fa-edit"></i> {% if quiz.questions %}Edit Questions{% else %}Add Questions{% endif %}
             </span>
-            {% else %}
-            <span class="edit-btn" data-quiz-id="{{ quiz.id }}" data-quiz-title="{{ quiz.title }}">
-                <i class="fas fa-edit"></i> Edit Questions
-            </span>
-            {% endif %}
             <span class="delete-btn" data-quiz-id="{{ quiz.id }}"><i class="fas fa-trash"></i></span>
         </li>
         {% endfor %}
@@ -281,33 +329,7 @@
             <form id="quizQuestionsForm">
                 <input type="hidden" id="quizQuestionQuizId" name="quiz_id" value="">
                 <div id="questionsContainer">
-                    <div class="question-block">
-                        <span class="remove-question-btn" onclick="removeQuestion(this)">
-                            <i class="fas fa-trash"></i>
-                        </span>
-                        <label>Question 1:</label>
-                        <textarea name="questions[]" required class="question-input" rows="3"></textarea>
-                        
-                        <div class="options-container">
-                            <label>Options:</label>
-                            <div class="option-input">
-                                <input type="radio" name="correct_1" value="0" required>
-                                <input type="text" name="options_1[]" placeholder="Option A" required>
-                            </div>
-                            <div class="option-input">
-                                <input type="radio" name="correct_1" value="1" required>
-                                <input type="text" name="options_1[]" placeholder="Option B" required>
-                            </div>
-                            <div class="option-input">
-                                <input type="radio" name="correct_1" value="2" required>
-                                <input type="text" name="options_1[]" placeholder="Option C" required>
-                            </div>
-                            <div class="option-input">
-                                <input type="radio" name="correct_1" value="3" required>
-                                <input type="text" name="options_1[]" placeholder="Option D" required>
-                            </div>
-                        </div>
-                    </div>
+                    <!-- Questions will be dynamically added here -->
                 </div>
                 
                 <div>
@@ -348,8 +370,6 @@
     </div>
 
     <script>
-        let questionCounter = 1;
-
         // Strand and Category Selection
         const strandSelect = document.getElementById('strand');
         const categorySelect = document.getElementById('quiz_category');
@@ -381,34 +401,36 @@
 
         // Add Question Dynamically
         document.getElementById('addQuestionBtn').addEventListener('click', function() {
-            questionCounter++;
             const container = document.getElementById('questionsContainer');
+            const questionIndex = container.children.length;
             const newQuestionBlock = document.createElement('div');
             newQuestionBlock.className = 'question-block';
+            newQuestionBlock.dataset.questionIndex = questionIndex;
             newQuestionBlock.innerHTML = `
                 <span class="remove-question-btn" onclick="removeQuestion(this)">
                     <i class="fas fa-trash"></i>
                 </span>
-                <label>Question ${questionCounter}:</label>
+                <label>Question ${questionIndex + 1}:</label>
                 <textarea name="questions[]" required class="question-input" rows="3"></textarea>
-                
+                <input type="hidden" name="question_index[]" value="${questionIndex}">
+
                 <div class="options-container">
                     <label>Options:</label>
                     <div class="option-input">
-                        <input type="radio" name="correct_${questionCounter}" value="0" required>
-                        <input type="text" name="options_${questionCounter}[]" placeholder="Option A" required>
+                        <input type="radio" name="correct_answer_${questionIndex}" value="0" required checked>
+                        <input type="text" name="options_${questionIndex}[]" placeholder="Option A" required>
                     </div>
                     <div class="option-input">
-                        <input type="radio" name="correct_${questionCounter}" value="1" required>
-                        <input type="text" name="options_${questionCounter}[]" placeholder="Option B" required>
+                        <input type="radio" name="correct_answer_${questionIndex}" value="1" required>
+                        <input type="text" name="options_${questionIndex}[]" placeholder="Option B" required>
                     </div>
                     <div class="option-input">
-                        <input type="radio" name="correct_${questionCounter}" value="2" required>
-                        <input type="text" name="options_${questionCounter}[]" placeholder="Option C" required>
+                        <input type="radio" name="correct_answer_${questionIndex}" value="2" required>
+                        <input type="text" name="options_${questionIndex}[]" placeholder="Option C" required>
                     </div>
                     <div class="option-input">
-                        <input type="radio" name="correct_${questionCounter}" value="3" required>
-                        <input type="text" name="options_${questionCounter}[]" placeholder="Option D" required>
+                        <input type="radio" name="correct_answer_${questionIndex}" value="3" required>
+                        <input type="text" name="options_${questionIndex}[]" placeholder="Option D" required>
                     </div>
                 </div>
             `;
@@ -419,6 +441,31 @@
             const container = document.getElementById('questionsContainer');
             if (container.children.length > 1) {
                 element.closest('.question-block').remove();
+
+                // Update the question numbers and indices for remaining questions
+                Array.from(container.children).forEach((questionBlock, idx) => {
+                    // Update the visible question number
+                    const labelElement = questionBlock.querySelector('label');
+                    labelElement.textContent = `Question ${idx + 1}:`;
+
+                    // Update the question index hidden input
+                    const indexInput = questionBlock.querySelector('input[name="question_index[]"]');
+                    indexInput.value = idx;
+
+                    // Update the data attribute
+                    questionBlock.dataset.questionIndex = idx;
+
+                    // Update the radio button names and option input names
+                    const radioButtons = questionBlock.querySelectorAll('input[type="radio"]');
+                    radioButtons.forEach(radio => {
+                        radio.name = `correct_answer_${idx}`;
+                    });
+
+                    const optionInputs = questionBlock.querySelectorAll('.option-input input[type="text"]');
+                    optionInputs.forEach(input => {
+                        input.name = `options_${idx}[]`;
+                    });
+                });
             }
         }
 
@@ -445,31 +492,31 @@
                 // Reset questions container
                 const container = document.getElementById('questionsContainer');
                 container.innerHTML = '';
-                questionCounter = 0;
 
                 // Populate existing questions if any
                 if (data.questions && data.questions.length > 0) {
                     data.questions.forEach((question, index) => {
-                        questionCounter++;
                         const newQuestionBlock = document.createElement('div');
                         newQuestionBlock.className = 'question-block';
+                        newQuestionBlock.dataset.questionIndex = index;
                         newQuestionBlock.innerHTML = `
                             <span class="remove-question-btn" onclick="removeQuestion(this)">
                                 <i class="fas fa-trash"></i>
                             </span>
-                            <label>Question ${questionCounter}:</label>
+                            <label>Question ${index + 1}:</label>
                             <textarea name="questions[]" required class="question-input" rows="3">${question.question}</textarea>
-                            
+                            <input type="hidden" name="question_index[]" value="${index}">
+
                             <div class="options-container">
                                 <label>Options:</label>
                                 ${question.options.map((option, optionIndex) => `
                                     <div class="option-input">
-                                        <input type="radio" name="correct_${questionCounter}" 
-                                               value="${optionIndex}" 
-                                               ${question.correct_answer === optionIndex ? 'checked' : ''} 
+                                        <input type="radio" name="correct_answer_${index}"
+                                               value="${optionIndex}"
+                                               ${question.correct_answer === optionIndex ? 'checked' : ''}
                                                required>
-                                        <input type="text" name="options_${questionCounter}[]" 
-                                               placeholder="Option ${String.fromCharCode(65 + optionIndex)}" 
+                                        <input type="text" name="options_${index}[]"
+                                               placeholder="Option ${String.fromCharCode(65 + optionIndex)}"
                                                value="${option}" required>
                                     </div>
                                 `).join('')}
@@ -479,33 +526,34 @@
                     });
                 } else {
                     // If no questions, add a default question block
-                    questionCounter = 1;
                     const defaultQuestionBlock = document.createElement('div');
                     defaultQuestionBlock.className = 'question-block';
+                    defaultQuestionBlock.dataset.questionIndex = 0;
                     defaultQuestionBlock.innerHTML = `
                         <span class="remove-question-btn" onclick="removeQuestion(this)">
                             <i class="fas fa-trash"></i>
                         </span>
                         <label>Question 1:</label>
                         <textarea name="questions[]" required class="question-input" rows="3"></textarea>
-                        
+                        <input type="hidden" name="question_index[]" value="0">
+
                         <div class="options-container">
                             <label>Options:</label>
                             <div class="option-input">
-                                <input type="radio" name="correct_1" value="0" required>
-                                <input type="text" name="options_1[]" placeholder="Option A" required>
+                                <input type="radio" name="correct_answer_0" value="0" required checked>
+                                <input type="text" name="options_0[]" placeholder="Option A" required>
                             </div>
                             <div class="option-input">
-                                <input type="radio" name="correct_1" value="1" required>
-                                <input type="text" name="options_1[]" placeholder="Option B" required>
+                                <input type="radio" name="correct_answer_0" value="1" required>
+                                <input type="text" name="options_0[]" placeholder="Option B" required>
                             </div>
                             <div class="option-input">
-                                <input type="radio" name="correct_1" value="2" required>
-                                <input type="text" name="options_1[]" placeholder="Option C" required>
+                                <input type="radio" name="correct_answer_0" value="2" required>
+                                <input type="text" name="options_0[]" placeholder="Option C" required>
                             </div>
                             <div class="option-input">
-                                <input type="radio" name="correct_1" value="3" required>
-                                <input type="text" name="options_1[]" placeholder="Option D" required>
+                                <input type="radio" name="correct_answer_0" value="3" required>
+                                <input type="text" name="options_0[]" placeholder="Option D" required>
                             </div>
                         </div>
                     `;
@@ -523,19 +571,46 @@
         // Quiz Questions Form Submission
         document.getElementById('quizQuestionsForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            
-            const formData = new FormData(this);
-            
+
+            // Create a new FormData object
+            const formData = new FormData();
+
+            // Add quiz_id
+            const quizId = document.getElementById('quizQuestionQuizId').value;
+            formData.append('quiz_id', quizId);
+
+            // Get all question blocks
+            const questionBlocks = document.querySelectorAll('.question-block');
+
+            // Process each question block
+            questionBlocks.forEach((block, blockIndex) => {
+                // Get the question text
+                const questionText = block.querySelector('textarea[name="questions[]"]').value;
+                formData.append('questions[]', questionText);
+
+                // Get the correct answer for this question
+                const correctRadio = block.querySelector('input[type="radio"]:checked');
+                if (correctRadio) {
+                    formData.append(`correct_answer_${blockIndex}`, correctRadio.value);
+                }
+
+                // Get all options for this question
+                const optionInputs = block.querySelectorAll('.option-input input[type="text"]');
+                optionInputs.forEach((input, optionIndex) => {
+                    formData.append(`options_${blockIndex}[]`, input.value);
+                });
+            });
+
             try {
                 const response = await fetch('/nimda/save_quiz_questions', {
                     method: 'POST',
                     body: formData
                 });
-                
+
                 if (response.ok) {
                     // Show success popup
                     showPopup('successPopup');
-                    
+
                     // Optionally reload the page after a delay
                     setTimeout(() => {
                         closePopup('quizQuestionPopup');
