@@ -375,9 +375,14 @@ def start_quiz(quiz_id):
         flash('Quiz not found or no questions available', 'error')
         return redirect(url_for('dashboard'))
     
-    # Make sure time_per_question is set
-    if 'time_per_question' not in quiz:
-        quiz['time_per_question'] = 30
+    # Make sure all questions have time limits set
+    for question in quiz['questions']:
+        if 'time_limit' not in question:
+            question['time_limit'] = 30  # Default 30 seconds if not set
+    
+    # Calculate and set total quiz time if not already set
+    if 'total_time' not in quiz:
+        quiz['total_time'] = sum(q['time_limit'] for q in quiz['questions'])
     
     return render_template('quiz.html', quiz=quiz)
 
@@ -652,28 +657,29 @@ def admin_save_quiz_questions():
         if not correct_answer:
             return jsonify({'error': f'Missing correct answer for question {i+1}'}), 400
         
-        # Get time for this question
-        time_per_question = request.form.get(f'time_per_question_{i}', 30)
+        # Get time limit for this question
+        time_limit = request.form.get(f'time_limit_{i}', '30')
         try:
-            time_per_question = int(time_per_question)
-            if time_per_question < 10:
-                time_per_question = 10
-            elif time_per_question > 300:
-                time_per_question = 300
+            time_limit = int(time_limit)
+            if time_limit < 10:
+                time_limit = 10
+            elif time_limit > 300:
+                time_limit = 300
         except:
-            time_per_question = 30
+            time_limit = 30
         
         # Get options
         options = []
         option_values = request.form.getlist(f'options_{i}[]')
-        if option_values:
-            options = option_values
-        else:
-            # Try alternate format
+        if not option_values:
+            # Try alternative format that might be used
             for j in range(4):  # Assuming 4 options per question
-                option = request.form.get(f'option_{j}_{i}')
+                option_key = f'option_{j}_{i}'
+                option = request.form.get(option_key)
                 if option:
                     options.append(option)
+        else:
+            options = option_values
         
         if len(options) < 2:
             return jsonify({'error': f'Not enough options for question {i+1}'}), 400
@@ -683,7 +689,7 @@ def admin_save_quiz_questions():
             'question': question_texts[i],
             'options': options,
             'correct_answer': int(correct_answer),
-            'time_per_question': time_per_question
+            'time_limit': time_limit
         }
         
         questions.append(question)
@@ -691,9 +697,12 @@ def admin_save_quiz_questions():
     # Update quiz with questions
     quiz['questions'] = questions
     
-    # Calculate total quiz time (sum of all question times)
-    total_time = sum(q['time_per_question'] for q in questions)
-    quiz['total_time'] = total_time
+    # Remove the overall time_per_question field if it exists
+    if 'time_per_question' in quiz:
+        del quiz['time_per_question']
+    
+    # Calculate total quiz time - sum of all question time limits
+    quiz['total_time'] = sum(q['time_limit'] for q in questions)
     
     save_quizzes(quizzes)
     
@@ -840,4 +849,6 @@ def get_ai_response():
 init_files()
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, ssl_context=('cert.pem', 'key.pem'), debug=True)
+    port = int(os.environ
+    .get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=True)

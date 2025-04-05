@@ -342,16 +342,9 @@
         const quizId = "{{ quiz.id }}";
         const quizSessionKey = `quiz_session_${quizId}`;
         let startTime;
-        
-        // Get all question times
-        const questionTimes = [
-            {% for question in quiz.questions %}
-                {{ question.time_per_question|default(30) }}{{ "," if not loop.last }}
-            {% endfor %}
-        ];
-        
+        let questionTimeLimits = [{% for question in quiz.questions %}{% if question.time_limit %}{{ question.time_limit }}{% else %}30{% endif %}{% if not loop.last %},{% endif %}{% endfor %}];
         let currentQuestionIndex = 0;
-        let timeLeft;
+        let currentQuestionTimeLeft;
         
         // Check if we have an existing session to handle page refresh
         function initializeOrResumeSession() {
@@ -362,25 +355,30 @@
                 const sessionData = JSON.parse(existingSession);
                 startTime = new Date(sessionData.startTime);
                 currentQuestionIndex = sessionData.currentQuestion || 0;
-                const questionStartTime = new Date(sessionData.questionStartTime);
-                const elapsedTime = Math.floor((new Date() - questionStartTime) / 1000);
-                timeLeft = questionTimes[currentQuestionIndex] - elapsedTime;
+                const elapsedTime = Math.floor((new Date() - startTime) / 1000);
                 
-                // If timer expired during refresh, move to next question or submit form
-                if (timeLeft <= 0) {
-                    if (currentQuestionIndex >= questionTimes.length - 1) {
-                        // Last question - submit form
+                // Calculate time left for current question
+                let timeConsumed = 0;
+                for (let i = 0; i < currentQuestionIndex; i++) {
+                    timeConsumed += questionTimeLimits[i];
+                }
+                
+                currentQuestionTimeLeft = questionTimeLimits[currentQuestionIndex] - (elapsedTime - timeConsumed);
+                
+                // If timer expired for current question, move to next question or submit
+                if (currentQuestionTimeLeft <= 0) {
+                    // Check if this is the last question
+                    if (currentQuestionIndex >= questionTimeLimits.length - 1) {
                         document.getElementById("quizForm").submit();
                         return false;
-                } else {
-                        // Go to next question
+                    } else {
+                        // Move to next question
                         currentQuestionIndex++;
-                        timeLeft = questionTimes[currentQuestionIndex];
-                        saveSessionData(currentQuestionIndex, new Date());
+                        currentQuestionTimeLeft = questionTimeLimits[currentQuestionIndex];
                     }
                 }
                 
-                // Restore current question
+                // Restore current question display
                 document.querySelectorAll('.quiz-question').forEach((q, i) => {
                     q.style.display = i === currentQuestionIndex ? 'block' : 'none';
                 });
@@ -390,19 +388,18 @@
                 // Start new session
                 startTime = new Date();
                 currentQuestionIndex = 0;
-                timeLeft = questionTimes[0];
+                currentQuestionTimeLeft = questionTimeLimits[0];
                 
                 // Save session data
-                saveSessionData(0, startTime);
+                saveSessionData();
                 return true;
             }
         }
 
-        function saveSessionData(questionIndex, questionStartTime) {
+        function saveSessionData() {
             const sessionData = {
                 startTime: startTime.toISOString(),
-                currentQuestion: questionIndex,
-                questionStartTime: questionStartTime.toISOString()
+                currentQuestion: currentQuestionIndex
             };
             localStorage.setItem(quizSessionKey, JSON.stringify(sessionData));
         }
@@ -419,19 +416,8 @@
             const quizForm = document.getElementById('quizForm');
             const webcamContainer = document.querySelector('.webcam-container');
             
-            // Check if running in a secure context (HTTPS or localhost)
-            const isSecureContext = window.isSecureContext || location.protocol === 'https:' || location.hostname === 'localhost';
-            if (!isSecureContext) {
-                const warningEl = document.createElement('div');
-                warningEl.style.color = '#e11d48';
-                warningEl.style.marginTop = '10px';
-                warningEl.style.fontWeight = 'bold';
-                warningEl.innerHTML = 'Camera access requires HTTPS! This site is using HTTP, which may cause camera permission issues.';
-                permissionContainer.appendChild(warningEl);
-            }
-            
             permissionBtn.addEventListener('click', function() {
-                startWebcam(webcamContainer, quizForm).then(success => {
+                startWebcam().then(success => {
                     if (success) {
                         permissionContainer.style.display = 'none';
                         quizForm.style.display = 'block';
@@ -442,44 +428,56 @@
                     }
                 });
             });
-
-        // Timer functionality
-            const timerDisplay = document.getElementById('timer');
-            let timerInterval;
             
-            function updateTimerDisplay() {
-            const minutes = Math.floor(timeLeft / 60);
-            const seconds = timeLeft % 60;
-                const displayMinutes = minutes < 10 ? '0' + minutes : minutes;
-                const displaySeconds = seconds < 10 ? '0' + seconds : seconds;
-                timerDisplay.textContent = displayMinutes + ':' + displaySeconds;
-            }
+            // Timer functionality
+            const timerDisplay = document.getElementById('timer');
+            let countdownTimer;
             
             function startTimer() {
                 updateTimerDisplay();
                 
-                if (timerInterval) {
-                    clearInterval(timerInterval);
-                }
-                
-                timerInterval = setInterval(function() {
-                    timeLeft--;
+                countdownTimer = setInterval(function() {
+                    currentQuestionTimeLeft--;
                     updateTimerDisplay();
-            
-            if (timeLeft <= 0) {
-                        // Time's up for current question
-                        if (currentQuestionIndex >= questionTimes.length - 1) {
-                            // Last question - submit form
-                            clearInterval(timerInterval);
+                    
+                    if (currentQuestionTimeLeft <= 0) {
+                        // Time's up for this question
+                        clearInterval(countdownTimer);
+                        
+                        // If this is the last question, submit the form
+                        if (currentQuestionIndex >= questionTimeLimits.length - 1) {
                             localStorage.removeItem(quizSessionKey);
                             document.getElementById("quizForm").submit();
                         } else {
-                            // Go to next question
-                            clearInterval(timerInterval);
-                            nextQuestion();
+                            // Move to next question
+                            const questions = document.querySelectorAll('.quiz-question');
+                            questions[currentQuestionIndex].style.display = 'none';
+                            currentQuestionIndex++;
+                            questions[currentQuestionIndex].style.display = 'block';
+                            currentQuestionTimeLeft = questionTimeLimits[currentQuestionIndex];
+                            saveSessionData();
+                            updateNavButtons();
+                            startTimer();
                         }
                     }
                 }, 1000);
+            }
+            
+            function updateTimerDisplay() {
+                const minutes = Math.floor(currentQuestionTimeLeft / 60);
+                const seconds = currentQuestionTimeLeft % 60;
+                const displayMinutes = minutes < 10 ? '0' + minutes : minutes;
+                const displaySeconds = seconds < 10 ? '0' + seconds : seconds;
+                timerDisplay.textContent = displayMinutes + ':' + displaySeconds;
+                
+                // Visual indicator when time is running low
+                if (currentQuestionTimeLeft <= 10) {
+                    timerDisplay.style.color = '#ff3333';
+                } else if (currentQuestionTimeLeft <= 30) {
+                    timerDisplay.style.color = '#ff9900';
+                } else {
+                    timerDisplay.style.color = '#6366f1';
+                }
             }
 
             // Question navigation functionality
@@ -488,18 +486,6 @@
             const prevBtn = document.getElementById('prevBtn');
             const submitBtn = document.getElementById('submitBtn');
 
-            function nextQuestion() {
-                questions[currentQuestionIndex].style.display = 'none';
-                currentQuestionIndex++;
-                questions[currentQuestionIndex].style.display = 'block';
-                
-                // Reset timer for new question
-                timeLeft = questionTimes[currentQuestionIndex];
-                saveSessionData(currentQuestionIndex, new Date());
-                updateTimerDisplay();
-                updateNavButtons();
-            }
-            
             function updateNavButtons() {
                 prevBtn.disabled = currentQuestionIndex === 0;
                 nextBtn.style.display = currentQuestionIndex === questions.length - 1 ? 'none' : 'flex';
@@ -516,22 +502,42 @@
             }
 
             nextBtn.addEventListener('click', function() {
-                clearInterval(timerInterval);
-                nextQuestion();
+                // Clear current timer
+                clearInterval(countdownTimer);
+                
+                // Move to next question
+                questions[currentQuestionIndex].style.display = 'none';
+                currentQuestionIndex++;
+                questions[currentQuestionIndex].style.display = 'block';
+                
+                // Reset timer for new question
+                currentQuestionTimeLeft = questionTimeLimits[currentQuestionIndex];
+                
+                // Update navigation and save state
+                updateNavButtons();
+                saveSessionData();
+                
+                // Start timer for new question
                 startTimer();
             });
 
             prevBtn.addEventListener('click', function() {
-                clearInterval(timerInterval);
+                // Clear current timer
+                clearInterval(countdownTimer);
+                
+                // Move to previous question
                 questions[currentQuestionIndex].style.display = 'none';
                 currentQuestionIndex--;
                 questions[currentQuestionIndex].style.display = 'block';
                 
-                // Reset timer for previous question
-                timeLeft = questionTimes[currentQuestionIndex];
-                saveSessionData(currentQuestionIndex, new Date());
-                updateTimerDisplay();
+                // Reset timer for new question
+                currentQuestionTimeLeft = questionTimeLimits[currentQuestionIndex];
+                
+                // Update navigation and save state
                 updateNavButtons();
+                saveSessionData();
+                
+                // Start timer for new question
                 startTimer();
             });
 
@@ -549,8 +555,8 @@
             updateNavButtons();
 
             // Option selection
-        document.querySelectorAll('.quiz-option').forEach(option => {
-            option.addEventListener('click', function() {
+            document.querySelectorAll('.quiz-option').forEach(option => {
+                option.addEventListener('click', function() {
                     const name = this.querySelector('input').name;
                     document.querySelectorAll(`input[name="${name}"]`).forEach(input => {
                         input.parentElement.classList.remove('selected');
@@ -570,42 +576,9 @@
         let eyesClosedWarningThreshold = 1500; // 1.5 seconds warning threshold
         let eyeDetectionInterval;
 
-        // Reference for the quiz form globally
-        const quizFormElement = document.getElementById('quizForm');
-
-        async function startWebcam(webcamContainer, quizForm) {
+        async function startWebcam() {
             try {
-                // Check if navigator.mediaDevices is supported
-                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                    // Try older APIs as fallback
-                    const getUserMedia = navigator.getUserMedia || 
-                                         navigator.webkitGetUserMedia || 
-                                         navigator.mozGetUserMedia || 
-                                         navigator.msGetUserMedia;
-                    
-                    if (!getUserMedia) {
-                        throw new Error('Camera API not supported in this browser. Try using Chrome, Firefox, or Edge.');
-                    }
-                    
-                    // Use older API with a promise wrapper
-                    const stream = await new Promise((resolve, reject) => {
-                        getUserMedia.call(navigator, 
-                            { video: true }, 
-                            resolve, 
-                            reject
-                        );
-                    });
-                    
-                    webcam.srcObject = stream;
-                    webcam.play();
-                    statusDisplay.textContent = 'Active (using legacy API)';
-                    statusDisplay.parentElement.className = 'monitoring-status active';
-                    eyeTrackingActive = true;
-                    webcam.addEventListener('loadeddata', startEyeTracking);
-                    return true;
-                }
-                
-                // Use modern API
+                // Explicitly request user permission
                 const stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { 
                         width: { ideal: 320 },
@@ -626,48 +599,12 @@
                 
             } catch (error) {
                 console.error('Error accessing webcam:', error);
-                statusDisplay.textContent = 'Error: ' + (error.message || 'Camera Access Denied');
+                statusDisplay.textContent = 'Error: Camera Access Denied';
                 statusDisplay.parentElement.className = 'monitoring-status error';
-                
-                // Create an error message with more details for troubleshooting
-                const errorMessageEl = document.createElement('div');
-                errorMessageEl.style.color = 'red';
-                errorMessageEl.style.margin = '10px 0';
-                errorMessageEl.style.fontSize = '14px';
-                errorMessageEl.innerHTML = `
-                    <p><strong>Camera error:</strong> ${error.message || 'Access denied'}</p>
-                    <p>Possible causes:</p>
-                    <ul style="text-align: left; margin-top: 5px;">
-                        <li>Camera permission was denied</li>
-                        <li>Your browser doesn't support camera access</li>
-                        <li>The site is not using HTTPS</li>
-                        <li>No camera is available on your device</li>
-                    </ul>
-                `;
-                
-                // Create a button to start quiz without camera (for testing)
-                const skipCameraBtn = document.createElement('button');
-                skipCameraBtn.textContent = 'Start Quiz Without Camera (Test Mode)';
-                skipCameraBtn.style.display = 'block';
-                skipCameraBtn.style.margin = '10px auto';
-                skipCameraBtn.style.padding = '8px 15px';
-                skipCameraBtn.style.background = '#f59e0b';
-                skipCameraBtn.style.color = 'white';
-                skipCameraBtn.style.border = 'none';
-                skipCameraBtn.style.borderRadius = '4px';
-                skipCameraBtn.style.cursor = 'pointer';
-                
-                skipCameraBtn.addEventListener('click', () => {
-                    document.getElementById('cameraPermission').style.display = 'none';
-                    quizForm.style.display = 'block';
-                    webcamContainer.style.display = 'none';
-                    initializeOrResumeSession();
-                    startTimer();
-                });
                 
                 // Show a button to retry camera permission
                 const retryBtn = document.createElement('button');
-                retryBtn.textContent = 'Retry Camera Access';
+                retryBtn.textContent = 'Allow Camera Access';
                 retryBtn.style.display = 'block';
                 retryBtn.style.margin = '10px auto';
                 retryBtn.style.padding = '8px 15px';
@@ -678,29 +615,18 @@
                 retryBtn.style.cursor = 'pointer';
                 
                 retryBtn.addEventListener('click', () => {
-                    errorMessageEl.remove();
                     retryBtn.remove();
-                    skipCameraBtn.remove();
-                    startWebcam(webcamContainer, quizForm);
+                    startWebcam();
                 });
                 
-                if (webcamContainer) {
-                    webcamContainer.appendChild(errorMessageEl);
-                    webcamContainer.appendChild(retryBtn);
-                    webcamContainer.appendChild(skipCameraBtn);
-                    webcamContainer.style.display = 'block';
-                }
+                document.querySelector('.webcam-container').appendChild(retryBtn);
+                webcamContainer.style.display = 'block';
                 
                 return false;
             }
         }
 
         function startEyeTracking() {
-            if (!webcam || !webcam.videoWidth) {
-                console.error("Video dimensions not available, can't start eye tracking");
-                return;
-            }
-            
             // Create a canvas element to process video frames
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
@@ -769,19 +695,12 @@
                             failedInput.type = 'hidden';
                             failedInput.name = 'eye_tracking_failed';
                             failedInput.value = 'true';
+                            quizForm.appendChild(failedInput);
                             
-                            // Use the globally accessible quiz form or find it again
-                            const form = quizFormElement || document.getElementById('quizForm');
-                            if (form) {
-                                form.appendChild(failedInput);
-                                
-                                // Submit the form with eye tracking failure
-                                clearInterval(eyeDetectionInterval);
-                                form.action = "{{ url_for('fail_quiz') }}";
-                                form.submit();
-                            } else {
-                                console.error("Could not find quiz form element");
-                            }
+                            // Submit the form with eye tracking failure
+                            clearInterval(eyeDetectionInterval);
+                            quizForm.action = "{{ url_for('fail_quiz') }}";
+                            quizForm.submit();
                         }
                     }
                 } else {

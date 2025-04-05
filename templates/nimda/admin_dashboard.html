@@ -227,34 +227,6 @@ body {
             resize: vertical;
         }
 
-        .time-setting {
-            margin: 15px 0;
-            display: flex;
-            align-items: center;
-            background: #f0f9ff;
-            padding: 12px;
-            border-radius: 6px;
-            border-left: 3px solid #3b82f6;
-        }
-
-        .time-setting label {
-            font-size: 14px;
-            margin-right: 10px;
-            margin-bottom: 0;
-            white-space: nowrap;
-            color: #1e40af;
-        }
-
-        .time-setting input[type="number"] {
-            width: 100px;
-            padding: 8px;
-            border: 1px solid #bfdbfe;
-            border-radius: 4px;
-            background: white;
-            color: #1e40af;
-            font-weight: 500;
-        }
-
         .options-container {
             margin-top: 15px;
             background: #fff;
@@ -299,6 +271,18 @@ body {
 
         #addQuestionBtn:hover {
             background-color: #1976D2;
+        }
+
+        .time-limit-container {
+            margin-bottom: 10px;
+        }
+
+        .time-limit-container label {
+            margin-right: 10px;
+        }
+
+        .time-limit-container input[type="number"] {
+            width: 100px;
         }       </style>
 </head>
 <body>
@@ -447,9 +431,9 @@ body {
                 <textarea name="questions[]" required class="question-input" rows="3"></textarea>
                 <input type="hidden" name="question_index[]" value="${questionIndex}">
                 
-                <div class="time-setting">
-                    <label>Time for this question (seconds):</label>
-                    <input type="number" name="time_per_question_${questionIndex}" value="30" min="10" max="300" required>
+                <div class="time-limit-container">
+                    <label>Time Limit for this Question (seconds):</label>
+                    <input type="number" name="time_limit_${questionIndex}" value="30" min="10" max="300" required>
                 </div>
 
                 <div class="options-container">
@@ -545,9 +529,9 @@ body {
                             <textarea name="questions[]" required class="question-input" rows="3">${question.question}</textarea>
                             <input type="hidden" name="question_index[]" value="${index}">
                             
-                            <div class="time-setting">
-                                <label>Time for this question (seconds):</label>
-                                <input type="number" name="time_per_question_${index}" value="${question.time_per_question || 30}" min="10" max="300" required>
+                            <div class="time-limit-container">
+                                <label>Time Limit for this Question (seconds):</label>
+                                <input type="number" name="time_limit_${index}" value="${question.time_limit || 30}" min="10" max="300" required>
                             </div>
 
                             <div class="options-container">
@@ -580,9 +564,9 @@ body {
                         <textarea name="questions[]" required class="question-input" rows="3"></textarea>
                         <input type="hidden" name="question_index[]" value="0">
                         
-                        <div class="time-setting">
-                            <label>Time for this question (seconds):</label>
-                            <input type="number" name="time_per_question_0" value="30" min="10" max="300" required>
+                        <div class="time-limit-container">
+                            <label>Time Limit for this Question (seconds):</label>
+                            <input type="number" name="time_limit_0" value="30" min="10" max="300" required>
                         </div>
 
                         <div class="options-container">
