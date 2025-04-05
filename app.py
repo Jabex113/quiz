@@ -3,6 +3,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import os
+import sys
 from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash, check_password_hash
 import random
@@ -13,9 +14,26 @@ from datetime import datetime, timedelta
 import base64
 import io
 import re
+import traceback
+
+# Print debugging information at import time for Vercel environment
+try:
+    print(f"Python version: {sys.version}")
+    print(f"Current directory: {os.getcwd()}")
+    print(f"Directory contents: {os.listdir('.')}")
+    if os.path.exists('.env'):
+        print("Found .env file")
+        with open('.env', 'r') as f:
+            print(f"Env file contents: {f.read()}")
+except Exception as e:
+    print(f"Debug error: {str(e)}")
 
 # Check if running in Vercel serverless environment
 IS_VERCEL = os.environ.get('VERCEL', False)
+print(f"IS_VERCEL: {IS_VERCEL}")
+
+# Load environment variables right away
+load_dotenv()
 
 # Conditionally import numpy and cv2
 CV2_AVAILABLE = False
@@ -36,8 +54,6 @@ except ImportError:
     cv2 = DummyCV2()
     np = DummyNP()
 
-load_dotenv()
-
 # Set up Flask app with proper settings for both local and serverless environments
 app = Flask(__name__, 
             static_folder='static',
@@ -54,9 +70,15 @@ DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY', "sk-289d0e34995441d9b01e878fbaa
 if IS_VERCEL:
     # In serverless, use /tmp directory for file operations
     BASE_DIR = '/tmp'
+    
+    # Also define a directory for initial data (readonly)
+    INIT_DATA_DIR = os.path.dirname(os.path.abspath(__file__))
+    print(f"Serverless mode: BASE_DIR={BASE_DIR}, INIT_DATA_DIR={INIT_DATA_DIR}")
 else:
     # In local environment, use current directory
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    INIT_DATA_DIR = BASE_DIR
+    print(f"Local mode: BASE_DIR={BASE_DIR}")
 
 # Update file paths to use the correct directory
 USERS_FILE = os.path.join(BASE_DIR, 'users.txt')
@@ -67,53 +89,85 @@ DISCUSSIONS_FILE = os.path.join(BASE_DIR, 'discussions.txt')
 
 # Initialize files with data from project directory if running on Vercel
 def init_files():
-    if IS_VERCEL:
-        # Copy data from project files to /tmp for Vercel environment
-        project_users = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'users.txt')
-        project_stories = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'database.txt')
-        project_quizzes = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'quizzes.txt')
+    try:
+        print(f"Initializing files in {BASE_DIR}")
         
-        # Load data from project directory if files exist
-        if os.path.exists(project_users):
-            try:
-                with open(project_users, 'r') as f:
-                    users_data = json.load(f)
-                with open(USERS_FILE, 'w') as f:
-                    json.dump(users_data, f)
-            except Exception as e:
-                print(f"Error copying users data: {e}")
+        # Create the base directory if it doesn't exist
+        if not os.path.exists(BASE_DIR):
+            os.makedirs(BASE_DIR)
+            print(f"Created BASE_DIR: {BASE_DIR}")
         
-        if os.path.exists(project_quizzes):
+        if IS_VERCEL:
+            # Copy data from project files to /tmp for Vercel environment
+            project_users = os.path.join(INIT_DATA_DIR, 'users.txt')
+            project_stories = os.path.join(INIT_DATA_DIR, 'database.txt')
+            project_quizzes = os.path.join(INIT_DATA_DIR, 'quizzes.txt')
+            
+            print(f"Looking for project files: {project_users}, {project_stories}, {project_quizzes}")
+            
+            # Load data from project directory if files exist
             try:
-                with open(project_quizzes, 'r') as f:
-                    quizzes_data = json.load(f)
-                with open(QUIZZES_FILE, 'w') as f:
-                    json.dump(quizzes_data, f)
+                if os.path.exists(project_users):
+                    with open(project_users, 'r') as f:
+                        users_data = json.load(f)
+                    with open(USERS_FILE, 'w') as f:
+                        json.dump(users_data, f)
+                    print(f"Copied users data from {project_users} to {USERS_FILE}")
+                else:
+                    print(f"Project users file not found: {project_users}")
             except Exception as e:
-                print(f"Error copying quizzes data: {e}")
-    
-    # Create files if they don't exist
-    if not os.path.exists(USERS_FILE):
-        with open(USERS_FILE, 'w') as f:
-            json.dump({}, f)
-    if not os.path.exists(STORIES_FILE):
-        with open(STORIES_FILE, 'w') as f:
-            json.dump([], f)
-    if not os.path.exists(QUIZZES_FILE):
-        with open(QUIZZES_FILE, 'w') as f:
-            json.dump([], f)
-    if not os.path.exists(SUBJECTS_FILE):
-        with open(SUBJECTS_FILE, 'w') as f:
-            json.dump([], f)
-    if not os.path.exists(DISCUSSIONS_FILE):
-        with open(DISCUSSIONS_FILE, 'w') as f:
-            json.dump([], f)
+                print(f"Error copying users data: {str(e)}")
+                print(traceback.format_exc())
+            
+            try:
+                if os.path.exists(project_quizzes):
+                    with open(project_quizzes, 'r') as f:
+                        quizzes_data = json.load(f)
+                    with open(QUIZZES_FILE, 'w') as f:
+                        json.dump(quizzes_data, f)
+                    print(f"Copied quizzes data from {project_quizzes} to {QUIZZES_FILE}")
+                else:
+                    print(f"Project quizzes file not found: {project_quizzes}")
+            except Exception as e:
+                print(f"Error copying quizzes data: {str(e)}")
+                print(traceback.format_exc())
+        
+        # Create files if they don't exist
+        if not os.path.exists(USERS_FILE):
+            with open(USERS_FILE, 'w') as f:
+                json.dump({}, f)
+            print(f"Created empty users file: {USERS_FILE}")
+            
+        if not os.path.exists(STORIES_FILE):
+            with open(STORIES_FILE, 'w') as f:
+                json.dump([], f)
+            print(f"Created empty stories file: {STORIES_FILE}")
+            
+        if not os.path.exists(QUIZZES_FILE):
+            with open(QUIZZES_FILE, 'w') as f:
+                json.dump([], f)
+            print(f"Created empty quizzes file: {QUIZZES_FILE}")
+            
+        if not os.path.exists(SUBJECTS_FILE):
+            with open(SUBJECTS_FILE, 'w') as f:
+                json.dump([], f)
+            print(f"Created empty subjects file: {SUBJECTS_FILE}")
+            
+        if not os.path.exists(DISCUSSIONS_FILE):
+            with open(DISCUSSIONS_FILE, 'w') as f:
+                json.dump([], f)
+            print(f"Created empty discussions file: {DISCUSSIONS_FILE}")
+    except Exception as e:
+        print(f"Error in init_files: {str(e)}")
+        print(traceback.format_exc())
 
 # Initialize subjects if the file is empty
 def init_subjects():
     try:
+        print("Initializing subjects...")
         subjects = load_subjects()
         if not subjects:
+            print("No subjects found, creating default subjects")
             # Default subjects for each strand
             default_subjects = {
                 'STEM': ['Mathematics', 'Biology', 'Chemistry', 'Physics', 'Engineering'],
@@ -133,9 +187,17 @@ def init_subjects():
                         'created_at': datetime.now().isoformat()
                     })
             
-            save_subjects(subjects)
+            try:
+                save_subjects(subjects)
+                print(f"Saved {len(subjects)} default subjects")
+            except Exception as save_error:
+                print(f"Error saving subjects: {str(save_error)}")
+                print(traceback.format_exc())
+        else:
+            print(f"Found {len(subjects)} existing subjects, skipping initialization")
     except Exception as e:
-        print(f"Error initializing subjects: {e}")
+        print(f"Error initializing subjects: {str(e)}")
+        print(traceback.format_exc())
 
 def generate_id():
     return ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
