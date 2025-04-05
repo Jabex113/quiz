@@ -3,7 +3,6 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import os
-import sys
 from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash, check_password_hash
 import random
@@ -12,285 +11,35 @@ import json
 import requests
 from datetime import datetime, timedelta
 import base64
+import numpy as np
+import cv2
 import io
-import re
-import traceback
 
-# Print debugging information at import time for Vercel environment
-try:
-    print(f"Python version: {sys.version}")
-    print(f"Current directory: {os.getcwd()}")
-    print(f"Directory contents: {os.listdir('.')}")
-    if os.path.exists('.env'):
-        print("Found .env file")
-        with open('.env', 'r') as f:
-            print(f"Env file contents: {f.read()}")
-except Exception as e:
-    print(f"Debug error: {str(e)}")
-
-# Check if running in Vercel serverless environment
-IS_VERCEL = os.environ.get('VERCEL', False)
-print(f"IS_VERCEL: {IS_VERCEL}")
-
-# Load environment variables right away
 load_dotenv()
 
-# Print environment variables for debugging (excluding sensitive ones)
-print("Environment variables:")
-for key in os.environ:
-    if not any(sensitive in key.lower() for sensitive in ['key', 'secret', 'password', 'token']):
-        print(f"  {key}: {os.environ[key]}")
+app = Flask(__name__)
+app.secret_key = os.getenv('FLASK_SECRET_KEY')
 
-# Conditionally import numpy and cv2
-CV2_AVAILABLE = False
-try:
-    import numpy as np
-    import cv2
-    CV2_AVAILABLE = True
-    print("OpenCV is available")
-except ImportError:
-    # Create dummy classes/functions for serverless environment
-    class DummyCV2:
-        def __getattr__(self, name):
-            return lambda *args, **kwargs: None
-
-    class DummyNP:
-        def frombuffer(self, *args, **kwargs):
-            return None
-
-    cv2 = DummyCV2()
-    np = DummyNP()
-    print("Using dummy OpenCV implementation")
-
-# Set up Flask app with proper settings for both local and serverless environments
-app = Flask(__name__,
-            static_folder='static',
-            static_url_path='/static')
-
-# Set secret key with fallback
-secret_key = os.getenv('FLASK_SECRET_KEY')
-if not secret_key:
-    print("WARNING: No FLASK_SECRET_KEY found, using default development key")
-    secret_key = 'default-secret-key-for-development'
-app.secret_key = secret_key
-
-# Email settings with validation
 EMAIL_ADDRESS = os.getenv('EMAIL_ADDRESS')
 EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD')
-if not EMAIL_ADDRESS or not EMAIL_PASSWORD:
-    print("WARNING: Email credentials not set. Email functionality will not work.")
 
 # DeepSeek API key - load from environment variable or use default for development
-DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY')
-if not DEEPSEEK_API_KEY:
-    print("WARNING: No DEEPSEEK_API_KEY found, using default development key")
-    DEEPSEEK_API_KEY = "sk-289d0e34995441d9b01e878fbaa61e2b"
+DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY', "sk-289d0e34995441d9b01e878fbaa61e2b")
 
-# Define file paths based on environment
-if IS_VERCEL:
-    # In serverless, use /tmp directory for file operations
-    BASE_DIR = '/tmp'
-    
-    # Also define a directory for initial data (readonly)
-    INIT_DATA_DIR = os.path.dirname(os.path.abspath(__file__))
-    print(f"Serverless mode: BASE_DIR={BASE_DIR}, INIT_DATA_DIR={INIT_DATA_DIR}")
-else:
-    # In local environment, use current directory
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    INIT_DATA_DIR = BASE_DIR
-    print(f"Local mode: BASE_DIR={BASE_DIR}")
+USERS_FILE = 'users.txt'
+STORIES_FILE = 'database.txt'
+QUIZZES_FILE = 'quizzes.txt' 
 
-# Update file paths to use the correct directory
-USERS_FILE = os.path.join(BASE_DIR, 'users.txt')
-STORIES_FILE = os.path.join(BASE_DIR, 'database.txt')
-QUIZZES_FILE = os.path.join(BASE_DIR, 'quizzes.txt')
-SUBJECTS_FILE = os.path.join(BASE_DIR, 'subjects.txt')
-DISCUSSIONS_FILE = os.path.join(BASE_DIR, 'discussions.txt')
-
-# Initialize files with data from project directory if running on Vercel
 def init_files():
-    try:
-        print(f"Initializing files in {BASE_DIR}")
-
-        # Create the base directory if it doesn't exist
-        if not os.path.exists(BASE_DIR):
-            os.makedirs(BASE_DIR)
-            print(f"Created BASE_DIR: {BASE_DIR}")
-
-        # Define default empty data structures
-        default_users = {}
-        default_stories = []
-        default_quizzes = []
-        default_subjects = []
-        default_discussions = []
-
-        if IS_VERCEL:
-            # Copy data from project files to /tmp for Vercel environment
-            project_users = os.path.join(INIT_DATA_DIR, 'users.txt')
-            project_stories = os.path.join(INIT_DATA_DIR, 'database.txt')
-            project_quizzes = os.path.join(INIT_DATA_DIR, 'quizzes.txt')
-            project_subjects = os.path.join(INIT_DATA_DIR, 'subjects.txt')
-            project_discussions = os.path.join(INIT_DATA_DIR, 'discussions.txt')
-
-            print(f"Looking for project files in: {INIT_DATA_DIR}")
-            print(f"Directory contents: {os.listdir(INIT_DATA_DIR) if os.path.exists(INIT_DATA_DIR) else 'Directory not found'}")
-
-            # Load data from project directory if files exist
-            try:
-                if os.path.exists(project_users):
-                    try:
-                        with open(project_users, 'r') as f:
-                            default_users = json.load(f)
-                        print(f"Loaded users data from {project_users}")
-                    except json.JSONDecodeError:
-                        print(f"Invalid JSON in users file: {project_users}")
-                else:
-                    print(f"Project users file not found: {project_users}")
-            except Exception as e:
-                print(f"Error loading users data: {str(e)}")
-                print(traceback.format_exc())
-
-            try:
-                if os.path.exists(project_stories):
-                    try:
-                        with open(project_stories, 'r') as f:
-                            default_stories = json.load(f)
-                        print(f"Loaded stories data from {project_stories}")
-                    except json.JSONDecodeError:
-                        print(f"Invalid JSON in stories file: {project_stories}")
-                else:
-                    print(f"Project stories file not found: {project_stories}")
-            except Exception as e:
-                print(f"Error loading stories data: {str(e)}")
-                print(traceback.format_exc())
-
-            try:
-                if os.path.exists(project_quizzes):
-                    try:
-                        with open(project_quizzes, 'r') as f:
-                            default_quizzes = json.load(f)
-                        print(f"Loaded quizzes data from {project_quizzes}")
-                    except json.JSONDecodeError:
-                        print(f"Invalid JSON in quizzes file: {project_quizzes}")
-                else:
-                    print(f"Project quizzes file not found: {project_quizzes}")
-            except Exception as e:
-                print(f"Error loading quizzes data: {str(e)}")
-                print(traceback.format_exc())
-
-            try:
-                if os.path.exists(project_subjects):
-                    try:
-                        with open(project_subjects, 'r') as f:
-                            default_subjects = json.load(f)
-                        print(f"Loaded subjects data from {project_subjects}")
-                    except json.JSONDecodeError:
-                        print(f"Invalid JSON in subjects file: {project_subjects}")
-                else:
-                    print(f"Project subjects file not found: {project_subjects}")
-            except Exception as e:
-                print(f"Error loading subjects data: {str(e)}")
-                print(traceback.format_exc())
-
-            try:
-                if os.path.exists(project_discussions):
-                    try:
-                        with open(project_discussions, 'r') as f:
-                            default_discussions = json.load(f)
-                        print(f"Loaded discussions data from {project_discussions}")
-                    except json.JSONDecodeError:
-                        print(f"Invalid JSON in discussions file: {project_discussions}")
-                else:
-                    print(f"Project discussions file not found: {project_discussions}")
-            except Exception as e:
-                print(f"Error loading discussions data: {str(e)}")
-                print(traceback.format_exc())
-
-        # Create files with default data
-        try:
-            with open(USERS_FILE, 'w') as f:
-                json.dump(default_users, f)
-            print(f"Created users file: {USERS_FILE}")
-        except Exception as e:
-            print(f"Error creating users file: {str(e)}")
-            print(traceback.format_exc())
-
-        try:
-            with open(STORIES_FILE, 'w') as f:
-                json.dump(default_stories, f)
-            print(f"Created stories file: {STORIES_FILE}")
-        except Exception as e:
-            print(f"Error creating stories file: {str(e)}")
-            print(traceback.format_exc())
-
-        try:
-            with open(QUIZZES_FILE, 'w') as f:
-                json.dump(default_quizzes, f)
-            print(f"Created quizzes file: {QUIZZES_FILE}")
-        except Exception as e:
-            print(f"Error creating quizzes file: {str(e)}")
-            print(traceback.format_exc())
-
-        try:
-            with open(SUBJECTS_FILE, 'w') as f:
-                json.dump(default_subjects, f)
-            print(f"Created subjects file: {SUBJECTS_FILE}")
-        except Exception as e:
-            print(f"Error creating subjects file: {str(e)}")
-            print(traceback.format_exc())
-
-        try:
-            with open(DISCUSSIONS_FILE, 'w') as f:
-                json.dump(default_discussions, f)
-            print(f"Created discussions file: {DISCUSSIONS_FILE}")
-        except Exception as e:
-            print(f"Error creating discussions file: {str(e)}")
-            print(traceback.format_exc())
-
-    except Exception as e:
-        print(f"Error in init_files: {str(e)}")
-        print(traceback.format_exc())
-
-# Initialize subjects if the file is empty
-def init_subjects():
-    try:
-        print("Initializing subjects...")
-        subjects = load_subjects()
-        if not subjects:
-            print("No subjects found, creating default subjects")
-            # Default subjects for each strand
-            default_subjects = {
-                'STEM': ['Mathematics', 'Biology', 'Chemistry', 'Physics', 'Engineering'],
-                'ICT': ['Programming', 'Networking', 'Web Development', 'Database', 'Computer Systems'],
-                'HUMSS': ['Literature', 'History', 'Philosophy', 'Political Science', 'Economics'],
-                'TVL': ['Cookery', 'Computer Hardware', 'Beauty Care', 'Automotive', 'Electronics'],
-                'ABM': ['Accounting', 'Business Management', 'Marketing', 'Finance', 'Entrepreneurship']
-            }
-            
-            for strand, strand_subjects in default_subjects.items():
-                for subject in strand_subjects:
-                    subjects.append({
-                        'id': generate_id(),
-                        'name': subject,
-                        'strand': strand,
-                        'semester': 'First Semester',
-                        'created_at': datetime.now().isoformat()
-                    })
-            
-            try:
-                save_subjects(subjects)
-                print(f"Saved {len(subjects)} default subjects")
-            except Exception as save_error:
-                print(f"Error saving subjects: {str(save_error)}")
-                print(traceback.format_exc())
-        else:
-            print(f"Found {len(subjects)} existing subjects, skipping initialization")
-    except Exception as e:
-        print(f"Error initializing subjects: {str(e)}")
-        print(traceback.format_exc())
-
-def generate_id():
-    return ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
+    if not os.path.exists(USERS_FILE):
+        with open(USERS_FILE, 'w') as f:
+            json.dump({}, f)
+    if not os.path.exists(STORIES_FILE):
+        with open(STORIES_FILE, 'w') as f:
+            json.dump([], f)
+    if not os.path.exists(QUIZZES_FILE):
+        with open(QUIZZES_FILE, 'w') as f:
+            json.dump([], f)
 
 def load_users():
     try:
@@ -324,32 +73,6 @@ def load_quizzes():
 def save_quizzes(quizzes):
     with open(QUIZZES_FILE, 'w') as f:
         json.dump(quizzes, f, indent=2)
-
-def load_subjects():
-    try:
-        with open(SUBJECTS_FILE, 'r') as f:
-            return json.load(f)
-    except:
-        return []
-
-def save_subjects(subjects):
-    with open(SUBJECTS_FILE, 'w') as f:
-        json.dump(subjects, f, indent=2)
-
-def load_discussions():
-    try:
-        with open(DISCUSSIONS_FILE, 'r') as f:
-            return json.load(f)
-    except:
-        return []
-
-def save_discussions(discussions):
-    with open(DISCUSSIONS_FILE, 'w') as f:
-        json.dump(discussions, f, indent=2)
-
-# Call init_files when the app starts
-init_files()
-init_subjects()
 
 def get_icons_by_category():
     return {
@@ -395,59 +118,22 @@ def generate_otp():
 
 def send_otp_email(email, otp):
     try:
-        # Check if email credentials are available
-        if not EMAIL_ADDRESS or not EMAIL_PASSWORD:
-            print("Email credentials not set. Skipping actual email sending.")
-            print(f"Would send OTP {otp} to {email}")
-            # In Vercel environment, just pretend we sent the email
-            if IS_VERCEL:
-                return True
-            return False
-
         message = MIMEMultipart()
         message['From'] = EMAIL_ADDRESS
         message['To'] = email
         message['Subject'] = 'Verify Your Campus Account'
 
-        # Generate HTML content
-        try:
-            html_content = render_template('email/otp.html', otp=otp)
-        except Exception as template_error:
-            print(f"Error rendering email template: {template_error}")
-            # Fallback to plain text
-            html_content = f"""
-            <html>
-            <body>
-                <h1>Verify Your Account</h1>
-                <p>Your verification code is: <strong>{otp}</strong></p>
-            </body>
-            </html>
-            """
-
+        html_content = render_template('email/otp.html', otp=otp)
         message.attach(MIMEText(html_content, 'html'))
 
-        try:
-            server = smtplib.SMTP('smtp.gmail.com', 587)
-            server.starttls()
-            server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
-            server.send_message(message)
-            server.quit()
-            print(f"Email sent successfully to {email}")
-            return True
-        except Exception as smtp_error:
-            print(f"SMTP error: {smtp_error}")
-            # In Vercel environment, just pretend we sent the email
-            if IS_VERCEL:
-                print("Running in Vercel - bypassing actual email sending")
-                return True
-            return False
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
+        server.send_message(message)
+        server.quit()
+        return True
     except Exception as e:
-        print(f"Error in send_otp_email: {e}")
-        print(traceback.format_exc())
-        # In Vercel environment, just pretend we sent the email
-        if IS_VERCEL:
-            print("Running in Vercel - bypassing actual email sending")
-            return True
+        print(f"Error sending email: {e}")
         return False
 
 @app.route('/')
@@ -685,43 +371,20 @@ def start_quiz(quiz_id):
     quizzes = load_quizzes()
     quiz = next((q for q in quizzes if q['id'] == quiz_id), None)
     
-    if not quiz:
-        flash('Quiz not found', 'error')
+    if not quiz or 'questions' not in quiz:
+        flash('Quiz not found or no questions available', 'error')
         return redirect(url_for('dashboard'))
     
-    if 'questions' not in quiz or not quiz['questions']:
-        flash('This quiz has no questions yet', 'error')
-        return redirect(url_for('dashboard'))
+    # Make sure time_per_question is set
+    if 'time_per_question' not in quiz:
+        quiz['time_per_question'] = 30
     
-    # Create a time expiration if time limit is set
-    if quiz.get('time_limit', 0) > 0:
-        session['quiz_end_time'] = (datetime.now() + timedelta(minutes=quiz['time_limit'])).isoformat()
-    else:
-        session.pop('quiz_end_time', None)  # No time limit
-    
-    # Record the start of the quiz
-    session['active_quiz'] = {
-        'id': quiz_id,
-        'started_at': datetime.now().isoformat()
-    }
-    
-    return render_template('quiz.html', quiz=quiz, quiz_id=quiz_id)
+    return render_template('quiz.html', quiz=quiz)
 
 @app.route('/submit-quiz', methods=['POST'])
 def submit_quiz():
-    if 'user_email' not in session or 'active_quiz' not in session:
-        return jsonify({'success': False, 'redirect': url_for('index')})
-    
-    # Check if quiz time has expired
-    if 'quiz_end_time' in session:
-        end_time = datetime.fromisoformat(session['quiz_end_time'])
-        if datetime.now() > end_time:
-            # Time expired
-            return jsonify({
-                'success': False, 
-                'message': 'Time limit exceeded',
-                'redirect': url_for('dashboard')
-            })
+    if 'user_email' not in session:
+        return redirect(url_for('index'))
     
     quiz_id = request.form.get('quiz_id')
     quizzes = load_quizzes()
@@ -832,10 +495,6 @@ def check_eyes():
     if 'user_email' not in session:
         return jsonify({'error': 'Not authenticated'}), 401
     
-    # In serverless environment without cv2/numpy, return a dummy response
-    if not CV2_AVAILABLE:
-        return jsonify({'eyesOpen': True, 'serverless': True})
-    
     try:
         # Get image data from POST request
         image_data = request.json.get('image', '')
@@ -904,157 +563,51 @@ def admin_dashboard():
     quizzes = load_quizzes()
     return render_template('nimda/admin_dashboard.html', quizzes=quizzes)
 
-@app.route('/nimda/subjects')
-def admin_subjects():
-    if 'admin_logged_in' not in session:
+@app.route('/nimda/post_quiz', methods=['POST'])
+def admin_post_quiz():
+    if 'admin' not in session:
         return redirect(url_for('admin_login'))
     
-    subjects = load_subjects()
-    return render_template('nimda/subjects.html', subjects=subjects)
-
-@app.route('/nimda/add_subject', methods=['POST'])
-def admin_add_subject():
-    if 'admin_logged_in' not in session:
-        return jsonify({'success': False, 'error': 'Not authorized'})
-    
-    name = request.form.get('name')
+    title = request.form.get('quiz_title')
+    description = request.form.get('quiz_description')
+    category = request.form.get('quiz_category')
     strand = request.form.get('strand')
-    semester = request.form.get('semester')
+    topics = request.form.get('quiz_topics')
+    time_per_question = request.form.get('time_per_question', 30)
     
-    if not all([name, strand, semester]):
-        return jsonify({'success': False, 'error': 'Missing required fields'})
+    try:
+        time_per_question = int(time_per_question)
+        if time_per_question < 10:
+            time_per_question = 10
+        elif time_per_question > 300:
+            time_per_question = 300
+    except:
+        time_per_question = 30
     
-    subjects = load_subjects()
+    if not all([title, description, category, strand, topics]):
+        flash('Please fill in all fields', 'error')
+        return redirect(url_for('admin_dashboard'))
     
-    # Check if subject already exists for this strand and semester
-    if any(s['name'] == name and s['strand'] == strand and s['semester'] == semester for s in subjects):
-        return jsonify({'success': False, 'error': 'Subject already exists for this strand and semester'})
+    # Generate a unique ID for the quiz
+    quiz_id = str(random.randint(10000, 99999))
     
-    new_subject = {
-        'id': generate_id(),
-        'name': name,
+    quiz = {
+        'id': quiz_id,
+        'title': title,
+        'description': description,
+        'category': category,
         'strand': strand,
-        'semester': semester,
+        'topics': topics,
+        'time_per_question': time_per_question,
         'created_at': datetime.now().isoformat()
     }
     
-    subjects.append(new_subject)
-    save_subjects(subjects)
-    
-    return jsonify({
-        'success': True,
-        'subject': new_subject,
-        'message': 'Subject added successfully'
-    })
-
-@app.route('/nimda/edit_subject/<subject_id>', methods=['POST'])
-def admin_edit_subject(subject_id):
-    if 'admin_logged_in' not in session:
-        return jsonify({'success': False, 'error': 'Not authorized'})
-    
-    name = request.form.get('name')
-    strand = request.form.get('strand')
-    semester = request.form.get('semester')
-    
-    if not all([name, strand, semester]):
-        return jsonify({'success': False, 'error': 'Missing required fields'})
-    
-    subjects = load_subjects()
-    subject = next((s for s in subjects if s['id'] == subject_id), None)
-    
-    if not subject:
-        return jsonify({'success': False, 'error': 'Subject not found'})
-    
-    # Check if another subject with the same details already exists
-    if any(s['name'] == name and s['strand'] == strand and s['semester'] == semester and s['id'] != subject_id for s in subjects):
-        return jsonify({'success': False, 'error': 'Another subject with these details already exists'})
-    
-    subject['name'] = name
-    subject['strand'] = strand
-    subject['semester'] = semester
-    subject['updated_at'] = datetime.now().isoformat()
-    
-    save_subjects(subjects)
-    
-    return jsonify({
-        'success': True,
-        'subject': subject,
-        'message': 'Subject updated successfully'
-    })
-
-@app.route('/nimda/delete_subject/<subject_id>', methods=['POST'])
-def admin_delete_subject(subject_id):
-    if 'admin_logged_in' not in session:
-        return jsonify({'success': False, 'error': 'Not authorized'})
-    
-    subjects = load_subjects()
-    subject = next((s for s in subjects if s['id'] == subject_id), None)
-    
-    if not subject:
-        return jsonify({'success': False, 'error': 'Subject not found'})
-    
-    # Check if subject is being used in any quizzes
     quizzes = load_quizzes()
-    if any(q.get('subject_id') == subject_id for q in quizzes):
-        return jsonify({'success': False, 'error': 'Cannot delete subject that is being used in quizzes'})
+    quizzes.append(quiz)
+    save_quizzes(quizzes)
     
-    subjects = [s for s in subjects if s['id'] != subject_id]
-    save_subjects(subjects)
-    
-    return jsonify({
-        'success': True,
-        'message': 'Subject deleted successfully'
-    })
-
-@app.route('/get_subjects/<strand>')
-def get_subjects(strand):
-    subjects = load_subjects()
-    strand_subjects = [s for s in subjects if s['strand'] == strand]
-    return jsonify(strand_subjects)
-
-@app.route('/nimda/post_quiz', methods=['POST'])
-def admin_post_quiz():
-    try:
-        title = request.form.get('title')
-        description = request.form.get('description')
-        strand = request.form.get('strand')
-        category = request.form.get('category')
-        subject_id = request.form.get('subject_id')
-        time_limit = request.form.get('time_limit', '0')  # Default to 0 (no limit)
-        
-        # Validate time limit is a number
-        try:
-            time_limit = int(time_limit)
-        except:
-            time_limit = 0  # Default to no time limit if invalid
-        
-        if not all([title, description, strand, category]):
-            return jsonify({'success': False, 'error': 'Missing required fields'})
-        
-        quizzes = load_quizzes()
-        
-        new_quiz = {
-            'id': str(random.randint(10000, 99999)),
-            'title': title,
-            'description': description,
-            'strand': strand,
-            'category': category,
-            'subject_id': subject_id,
-            'questions': [],
-            'time_limit': time_limit,  # Store time limit in minutes
-            'created_at': datetime.now().isoformat()
-        }
-        
-        quizzes.append(new_quiz)
-        save_quizzes(quizzes)
-        
-        return jsonify({
-            'success': True, 
-            'quiz_id': new_quiz['id'],
-            'message': 'Quiz created successfully'
-        })
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+    flash('Quiz created successfully', 'success')
+    return redirect(url_for('admin_dashboard'))
 
 @app.route('/nimda/get_quiz_questions/<quiz_id>')
 def get_quiz_questions(quiz_id):
@@ -1284,183 +837,7 @@ def get_ai_response():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
-@app.route('/quiz-discussion/<quiz_id>')
-def quiz_discussion(quiz_id):
-    if 'user_email' not in session:
-        return redirect(url_for('index'))
-    
-    quizzes = load_quizzes()
-    quiz = next((q for q in quizzes if q['id'] == quiz_id), None)
-    
-    if not quiz:
-        flash('Quiz not found', 'error')
-        return redirect(url_for('dashboard'))
-    
-    discussions = load_discussions()
-    quiz_discussions = [d for d in discussions if d['quiz_id'] == quiz_id]
-    
-    return render_template('discussion.html', 
-                          quiz=quiz, 
-                          discussions=quiz_discussions, 
-                          user_email=session['user_email'],
-                          username=session['username'])
-
-@app.route('/post-discussion', methods=['POST'])
-def post_discussion():
-    if 'user_email' not in session:
-        return jsonify({'success': False, 'error': 'Not authenticated'})
-    
-    quiz_id = request.form.get('quiz_id')
-    content = request.form.get('content')
-    
-    if not quiz_id or not content:
-        return jsonify({'success': False, 'error': 'Missing required fields'})
-    
-    # Check for inappropriate content
-    if contains_inappropriate_content(content):
-        return jsonify({'success': False, 'error': 'Your message contains inappropriate content'})
-    
-    discussions = load_discussions()
-    
-    new_discussion = {
-        'id': generate_id(),
-        'quiz_id': quiz_id,
-        'user_email': session['user_email'],
-        'username': session['username'],
-        'content': content,
-        'created_at': datetime.now().isoformat(),
-        'replies': []
-    }
-    
-    discussions.append(new_discussion)
-    save_discussions(discussions)
-    
-    return jsonify({
-        'success': True,
-        'discussion': new_discussion
-    })
-
-@app.route('/post-reply', methods=['POST'])
-def post_reply():
-    if 'user_email' not in session:
-        return jsonify({'success': False, 'error': 'Not authenticated'})
-    
-    discussion_id = request.form.get('discussion_id')
-    content = request.form.get('content')
-    
-    if not discussion_id or not content:
-        return jsonify({'success': False, 'error': 'Missing required fields'})
-    
-    # Check for inappropriate content
-    if contains_inappropriate_content(content):
-        return jsonify({'success': False, 'error': 'Your reply contains inappropriate content'})
-    
-    discussions = load_discussions()
-    discussion = next((d for d in discussions if d['id'] == discussion_id), None)
-    
-    if not discussion:
-        return jsonify({'success': False, 'error': 'Discussion not found'})
-    
-    reply = {
-        'id': generate_id(),
-        'user_email': session['user_email'],
-        'username': session['username'],
-        'content': content,
-        'created_at': datetime.now().isoformat()
-    }
-    
-    if 'replies' not in discussion:
-        discussion['replies'] = []
-    
-    discussion['replies'].append(reply)
-    save_discussions(discussions)
-    
-    return jsonify({
-        'success': True,
-        'reply': reply
-    })
-
-def contains_inappropriate_content(text):
-    # Simple profanity filter
-    profanity_list = [
-        'fuck', 'shit', 'ass', 'bitch', 'dick', 'pussy', 'cock', 
-        'cunt', 'damn', 'bastard', 'asshole', 'piss'
-    ]
-    
-    text_lower = text.lower()
-    
-    for word in profanity_list:
-        if word in text_lower:
-            return True
-    
-    return False
-
-@app.route('/record-suspicious-activity', methods=['POST'])
-def record_suspicious_activity():
-    if 'user_email' not in session or 'active_quiz' not in session:
-        return jsonify({'success': False, 'error': 'Not authorized'})
-    
-    data = request.json
-    quiz_id = data.get('quiz_id')
-    activity_type = data.get('activity_type')
-    
-    if not quiz_id or not activity_type:
-        return jsonify({'success': False, 'error': 'Missing required fields'})
-    
-    # Load users and find the current user
-    users = load_users()
-    user = users.get(session['user_email'])
-    
-    if not user:
-        return jsonify({'success': False, 'error': 'User not found'})
-    
-    # Initialize cheating_activities if it doesn't exist
-    if 'cheating_activities' not in user:
-        user['cheating_activities'] = []
-    
-    # Add the suspicious activity
-    user['cheating_activities'].append({
-        'quiz_id': quiz_id,
-        'activity_type': activity_type,
-        'timestamp': datetime.now().isoformat()
-    })
-    
-    save_users(users)
-    
-    return jsonify({'success': True})
-
-@app.route('/ping')
-def ping():
-    return jsonify({
-        "status": "ok",
-        "message": "API is working!",
-        "app": "Campus Quiz"
-    })
-
-@app.route('/debug')
-def debug():
-    """Route for debugging serverless function issues"""
-    debug_info = {
-        "status": "ok",
-        "environment": "vercel" if IS_VERCEL else "local",
-        "files_exist": {
-            "users.txt": os.path.exists(USERS_FILE),
-            "database.txt": os.path.exists(STORIES_FILE),
-            "quizzes.txt": os.path.exists(QUIZZES_FILE),
-            "subjects.txt": os.path.exists(SUBJECTS_FILE),
-            "discussions.txt": os.path.exists(DISCUSSIONS_FILE)
-        },
-        "env_vars": {
-            "has_email": bool(EMAIL_ADDRESS),
-            "has_email_password": bool(EMAIL_PASSWORD),
-            "has_secret_key": bool(app.secret_key),
-            "has_deepseek_key": bool(DEEPSEEK_API_KEY)
-        },
-        "cv2_available": CV2_AVAILABLE,
-        "base_dir": BASE_DIR
-    }
-    return jsonify(debug_info)
+init_files()
 
 if __name__ == '__main__':
-    # Just use HTTP for local development
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, ssl_context=('cert.pem', 'key.pem'), debug=True)

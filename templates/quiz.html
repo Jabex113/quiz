@@ -372,7 +372,7 @@
                         // Last question - submit form
                         document.getElementById("quizForm").submit();
                         return false;
-                    } else {
+                } else {
                         // Go to next question
                         currentQuestionIndex++;
                         timeLeft = questionTimes[currentQuestionIndex];
@@ -413,187 +413,11 @@
         });
 
         document.addEventListener('DOMContentLoaded', function() {
-            // Set up quiz functionality
-            const quizForm = document.getElementById('quizForm');
-            const questionContainer = document.getElementById('question-container');
-            const totalQuestions = {{ quiz.questions|length }};
-            let currentQuestion = 0;
-            let userAnswers = {};
-            let isSubmitting = false;
-            let lastActive = Date.now();
-            let warningCount = 0;
-            
-            // Set up visibility change detection for anti-cheating
-            document.addEventListener('visibilitychange', handleVisibilityChange);
-            
-            // Set up timer if time limit is specified
-            {% if quiz.time_limit and quiz.time_limit > 0 %}
-                const quizTimeLimit = {{ quiz.time_limit }}; // in minutes
-                const quizEndTime = new Date(new Date().getTime() + quizTimeLimit * 60 * 1000);
-                updateTimer();
-                setInterval(updateTimer, 1000);
-            {% endif %}
-            
-            // Track mouse movement outside viewport
-            document.addEventListener('mouseleave', () => {
-                recordSuspiciousActivity('Mouse left window');
-            });
-            
-            // Check for multiple display detection
-            try {
-                if (window.screen && window.screen.availWidth) {
-                    // If screen width is significantly larger than window width
-                    if (window.screen.availWidth - window.innerWidth > 300) {
-                        recordSuspiciousActivity('Multiple displays detected');
-                    }
-                }
-            } catch (err) {
-                console.error('Error checking displays:', err);
-            }
-            
-            // Function to update the timer display
-            function updateTimer() {
-                const timerElement = document.getElementById('timer');
-                if (!timerElement) return;
-                
-                const now = new Date();
-                const timeDiff = quizEndTime - now;
-                
-                if (timeDiff <= 0) {
-                    // Time's up - auto submit
-                    timerElement.textContent = "00:00";
-                    timerElement.style.color = "#f44336";
-                    timerElement.classList.add('blink');
-                    if (!isSubmitting) {
-                        isSubmitting = true;
-                        submitQuiz();
-                    }
-                    return;
-                }
-                
-                const minutes = Math.floor(timeDiff / 60000);
-                const seconds = Math.floor((timeDiff % 60000) / 1000);
-                
-                timerElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                
-                // Change color when time is running out
-                if (timeDiff < 60000) { // less than 1 minute
-                    timerElement.style.color = "#f44336";
-                    timerElement.classList.add('blink');
-                } else if (timeDiff < 300000) { // less than 5 minutes
-                    timerElement.style.color = "#ff9800";
-                }
-            }
-            
-            // Function to handle tab/window changes
-            function handleVisibilityChange() {
-                if (document.hidden) {
-                    // User switched away from the tab
-                    recordSuspiciousActivity('Tab switched');
-                    warningCount++;
-                    
-                    // After 3 warnings, auto submit
-                    if (warningCount >= 3) {
-                        alert("Multiple tab switches detected. Your quiz will be submitted.");
-                        submitQuiz();
-                    } else {
-                        // Set a timer to check if they come back quickly
-                        setTimeout(() => {
-                            if (document.hidden) {
-                                // Still hidden after delay, auto submit
-                                submitQuiz();
-                            }
-                        }, 5000); // 5 seconds grace period
-                    }
-                }
-            }
-            
-            // Function to record suspicious activity
-            function recordSuspiciousActivity(activityType) {
-                // Report suspicious activity to the server
-                fetch('/record-suspicious-activity', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        quiz_id: '{{ quiz.id }}',
-                        activity_type: activityType,
-                        timestamp: new Date().toISOString()
-                    })
-                }).catch(error => console.error('Error recording activity:', error));
-            }
-            
-            // Function to submit the quiz
-            function submitQuiz() {
-                if (isSubmitting) return; // Prevent multiple submissions
-                isSubmitting = true;
-                
-                // Get all answers
-                const formData = new FormData(quizForm);
-                
-                fetch('/submit-quiz', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        window.location.href = data.redirect;
-                    } else {
-                        alert(data.message || 'Failed to submit quiz');
-                        if (data.redirect) {
-                            window.location.href = data.redirect;
-                        }
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('An error occurred while submitting the quiz');
-                });
-            }
-            
-            // Handle browser back button
-            window.addEventListener('popstate', function(e) {
-                e.preventDefault();
-                const confirmExit = confirm('Are you sure you want to exit? Your progress will be lost.');
-                if (confirmExit) {
-                    window.location.href = '/dashboard';
-                } else {
-                    // Stay on the page
-                    history.pushState(null, document.title, window.location.href);
-                }
-            });
-            
-            // Prevent right-click to disable context menu
-            document.addEventListener('contextmenu', e => e.preventDefault());
-            
-            // Prevent copying text
-            document.addEventListener('copy', e => e.preventDefault());
-            
-            // Disable keyboard shortcuts
-            document.addEventListener('keydown', function(e) {
-                // Prevent Ctrl+C, Ctrl+V, Ctrl+P, F12, Alt+Tab
-                const forbiddenKeys = [
-                    67, // C
-                    86, // V
-                    80, // P
-                    123, // F12
-                    9   // Tab
-                ];
-                
-                if (e.ctrlKey && forbiddenKeys.includes(e.keyCode) || 
-                    e.keyCode === 123 || 
-                    (e.altKey && e.keyCode === 9)) {
-                    e.preventDefault();
-                    recordSuspiciousActivity('Keyboard shortcut attempt');
-                    return false;
-                }
-            });
-            
             // Setup camera permission button
             const permissionBtn = document.getElementById('cameraPermissionBtn');
             const permissionContainer = document.getElementById('cameraPermission');
+            const quizForm = document.getElementById('quizForm');
+            const webcamContainer = document.querySelector('.webcam-container');
             
             // Check if running in a secure context (HTTPS or localhost)
             const isSecureContext = window.isSecureContext || location.protocol === 'https:' || location.hostname === 'localhost';
@@ -618,14 +442,14 @@
                     }
                 });
             });
-            
-            // Timer functionality
+
+        // Timer functionality
             const timerDisplay = document.getElementById('timer');
             let timerInterval;
             
             function updateTimerDisplay() {
-                const minutes = Math.floor(timeLeft / 60);
-                const seconds = timeLeft % 60;
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
                 const displayMinutes = minutes < 10 ? '0' + minutes : minutes;
                 const displaySeconds = seconds < 10 ? '0' + seconds : seconds;
                 timerDisplay.textContent = displayMinutes + ':' + displaySeconds;
@@ -641,8 +465,8 @@
                 timerInterval = setInterval(function() {
                     timeLeft--;
                     updateTimerDisplay();
-                    
-                    if (timeLeft <= 0) {
+            
+            if (timeLeft <= 0) {
                         // Time's up for current question
                         if (currentQuestionIndex >= questionTimes.length - 1) {
                             // Last question - submit form
@@ -725,8 +549,8 @@
             updateNavButtons();
 
             // Option selection
-            document.querySelectorAll('.quiz-option').forEach(option => {
-                option.addEventListener('click', function() {
+        document.querySelectorAll('.quiz-option').forEach(option => {
+            option.addEventListener('click', function() {
                     const name = this.querySelector('input').name;
                     document.querySelectorAll(`input[name="${name}"]`).forEach(input => {
                         input.parentElement.classList.remove('selected');
