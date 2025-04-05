@@ -1,15 +1,17 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "api/index.py",
-      "use": "@vercel/python"
+  "functions": {
+    "api/index.py": {
+      "memory": 1536,
+      "maxDuration": 30,
+      "runtime": "@vercel/python"
     },
-    {
-      "src": "api/simple.py",
-      "use": "@vercel/python"
+    "api/simple.py": {
+      "memory": 512,
+      "maxDuration": 5,
+      "runtime": "@vercel/python"
     }
-  ],
+  },
   "routes": [
     {
       "src": "/simple",
@@ -25,15 +27,5 @@
     "VERCEL": "true",
     "FLASK_ENV": "production",
     "FLASK_DEBUG": "0"
-  },
-  "functions": {
-    "api/index.py": {
-      "memory": 1536,
-      "maxDuration": 30
-    },
-    "api/simple.py": {
-      "memory": 512,
-      "maxDuration": 5
-    }
   }
 } 
