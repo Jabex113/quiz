@@ -18,8 +18,11 @@ import re
 
 load_dotenv()
 
-app = Flask(__name__)
-app.secret_key = os.getenv('FLASK_SECRET_KEY')
+# Set up Flask app with proper settings for both local and serverless environments
+app = Flask(__name__, 
+            static_folder='static',
+            static_url_path='/static')
+app.secret_key = os.getenv('FLASK_SECRET_KEY', 'default-secret-key-for-development')
 
 EMAIL_ADDRESS = os.getenv('EMAIL_ADDRESS')
 EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD')
@@ -1177,19 +1180,11 @@ def record_suspicious_activity():
     
     return jsonify({'success': True})
 
+# Add basic route to verify app is working
+@app.route('/ping')
+def ping():
+    return 'pong'
+
 if __name__ == '__main__':
     # Just use HTTP for local development
     app.run(host='0.0.0.0', port=5000, debug=True)
-
-# Vercel deployment handler
-def handler(request):
-    """Handle a request for Vercel deployment."""
-    try:
-        from werkzeug.middleware.proxy_fix import ProxyFix
-        # Apply proxy fix to handle Vercel's routing
-        app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
-        return app(request)
-    except Exception as e:
-        # Return error information for debugging
-        response = f"Error processing request: {str(e)}"
-        return response
