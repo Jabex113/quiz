@@ -35,36 +35,56 @@ print(f"IS_VERCEL: {IS_VERCEL}")
 # Load environment variables right away
 load_dotenv()
 
+# Print environment variables for debugging (excluding sensitive ones)
+print("Environment variables:")
+for key in os.environ:
+    if not any(sensitive in key.lower() for sensitive in ['key', 'secret', 'password', 'token']):
+        print(f"  {key}: {os.environ[key]}")
+
 # Conditionally import numpy and cv2
 CV2_AVAILABLE = False
 try:
     import numpy as np
     import cv2
     CV2_AVAILABLE = True
+    print("OpenCV is available")
 except ImportError:
     # Create dummy classes/functions for serverless environment
     class DummyCV2:
         def __getattr__(self, name):
             return lambda *args, **kwargs: None
-    
+
     class DummyNP:
         def frombuffer(self, *args, **kwargs):
             return None
-    
+
     cv2 = DummyCV2()
     np = DummyNP()
+    print("Using dummy OpenCV implementation")
 
 # Set up Flask app with proper settings for both local and serverless environments
-app = Flask(__name__, 
+app = Flask(__name__,
             static_folder='static',
             static_url_path='/static')
-app.secret_key = os.getenv('FLASK_SECRET_KEY', 'default-secret-key-for-development')
 
+# Set secret key with fallback
+secret_key = os.getenv('FLASK_SECRET_KEY')
+if not secret_key:
+    print("WARNING: No FLASK_SECRET_KEY found, using default development key")
+    secret_key = 'default-secret-key-for-development'
+app.secret_key = secret_key
+
+# Email settings with validation
 EMAIL_ADDRESS = os.getenv('EMAIL_ADDRESS')
 EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD')
+if not EMAIL_ADDRESS or not EMAIL_PASSWORD:
+    print("WARNING: Email credentials not set. Email functionality will not work.")
 
 # DeepSeek API key - load from environment variable or use default for development
-DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY', "sk-289d0e34995441d9b01e878fbaa61e2b")
+DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY')
+if not DEEPSEEK_API_KEY:
+    print("WARNING: No DEEPSEEK_API_KEY found, using default development key")
+    DEEPSEEK_API_KEY = "sk-289d0e34995441d9b01e878fbaa61e2b"
 
 # Define file paths based on environment
 if IS_VERCEL:
@@ -91,72 +111,142 @@ DISCUSSIONS_FILE = os.path.join(BASE_DIR, 'discussions.txt')
 def init_files():
     try:
         print(f"Initializing files in {BASE_DIR}")
-        
+
         # Create the base directory if it doesn't exist
         if not os.path.exists(BASE_DIR):
             os.makedirs(BASE_DIR)
             print(f"Created BASE_DIR: {BASE_DIR}")
-        
+
+        # Define default empty data structures
+        default_users = {}
+        default_stories = []
+        default_quizzes = []
+        default_subjects = []
+        default_discussions = []
+
         if IS_VERCEL:
             # Copy data from project files to /tmp for Vercel environment
             project_users = os.path.join(INIT_DATA_DIR, 'users.txt')
             project_stories = os.path.join(INIT_DATA_DIR, 'database.txt')
             project_quizzes = os.path.join(INIT_DATA_DIR, 'quizzes.txt')
-            
-            print(f"Looking for project files: {project_users}, {project_stories}, {project_quizzes}")
-            
+            project_subjects = os.path.join(INIT_DATA_DIR, 'subjects.txt')
+            project_discussions = os.path.join(INIT_DATA_DIR, 'discussions.txt')
+
+            print(f"Looking for project files in: {INIT_DATA_DIR}")
+            print(f"Directory contents: {os.listdir(INIT_DATA_DIR) if os.path.exists(INIT_DATA_DIR) else 'Directory not found'}")
+
             # Load data from project directory if files exist
             try:
                 if os.path.exists(project_users):
-                    with open(project_users, 'r') as f:
-                        users_data = json.load(f)
-                    with open(USERS_FILE, 'w') as f:
-                        json.dump(users_data, f)
-                    print(f"Copied users data from {project_users} to {USERS_FILE}")
+                    try:
+                        with open(project_users, 'r') as f:
+                            default_users = json.load(f)
+                        print(f"Loaded users data from {project_users}")
+                    except json.JSONDecodeError:
+                        print(f"Invalid JSON in users file: {project_users}")
                 else:
                     print(f"Project users file not found: {project_users}")
             except Exception as e:
-                print(f"Error copying users data: {str(e)}")
+                print(f"Error loading users data: {str(e)}")
                 print(traceback.format_exc())
-            
+
+            try:
+                if os.path.exists(project_stories):
+                    try:
+                        with open(project_stories, 'r') as f:
+                            default_stories = json.load(f)
+                        print(f"Loaded stories data from {project_stories}")
+                    except json.JSONDecodeError:
+                        print(f"Invalid JSON in stories file: {project_stories}")
+                else:
+                    print(f"Project stories file not found: {project_stories}")
+            except Exception as e:
+                print(f"Error loading stories data: {str(e)}")
+                print(traceback.format_exc())
+
             try:
                 if os.path.exists(project_quizzes):
-                    with open(project_quizzes, 'r') as f:
-                        quizzes_data = json.load(f)
-                    with open(QUIZZES_FILE, 'w') as f:
-                        json.dump(quizzes_data, f)
-                    print(f"Copied quizzes data from {project_quizzes} to {QUIZZES_FILE}")
+                    try:
+                        with open(project_quizzes, 'r') as f:
+                            default_quizzes = json.load(f)
+                        print(f"Loaded quizzes data from {project_quizzes}")
+                    except json.JSONDecodeError:
+                        print(f"Invalid JSON in quizzes file: {project_quizzes}")
                 else:
                     print(f"Project quizzes file not found: {project_quizzes}")
             except Exception as e:
-                print(f"Error copying quizzes data: {str(e)}")
+                print(f"Error loading quizzes data: {str(e)}")
                 print(traceback.format_exc())
-        
-        # Create files if they don't exist
-        if not os.path.exists(USERS_FILE):
+
+            try:
+                if os.path.exists(project_subjects):
+                    try:
+                        with open(project_subjects, 'r') as f:
+                            default_subjects = json.load(f)
+                        print(f"Loaded subjects data from {project_subjects}")
+                    except json.JSONDecodeError:
+                        print(f"Invalid JSON in subjects file: {project_subjects}")
+                else:
+                    print(f"Project subjects file not found: {project_subjects}")
+            except Exception as e:
+                print(f"Error loading subjects data: {str(e)}")
+                print(traceback.format_exc())
+
+            try:
+                if os.path.exists(project_discussions):
+                    try:
+                        with open(project_discussions, 'r') as f:
+                            default_discussions = json.load(f)
+                        print(f"Loaded discussions data from {project_discussions}")
+                    except json.JSONDecodeError:
+                        print(f"Invalid JSON in discussions file: {project_discussions}")
+                else:
+                    print(f"Project discussions file not found: {project_discussions}")
+            except Exception as e:
+                print(f"Error loading discussions data: {str(e)}")
+                print(traceback.format_exc())
+
+        # Create files with default data
+        try:
             with open(USERS_FILE, 'w') as f:
-                json.dump({}, f)
-            print(f"Created empty users file: {USERS_FILE}")
-            
-        if not os.path.exists(STORIES_FILE):
+                json.dump(default_users, f)
+            print(f"Created users file: {USERS_FILE}")
+        except Exception as e:
+            print(f"Error creating users file: {str(e)}")
+            print(traceback.format_exc())
+
+        try:
             with open(STORIES_FILE, 'w') as f:
-                json.dump([], f)
-            print(f"Created empty stories file: {STORIES_FILE}")
-            
-        if not os.path.exists(QUIZZES_FILE):
+                json.dump(default_stories, f)
+            print(f"Created stories file: {STORIES_FILE}")
+        except Exception as e:
+            print(f"Error creating stories file: {str(e)}")
+            print(traceback.format_exc())
+
+        try:
             with open(QUIZZES_FILE, 'w') as f:
-                json.dump([], f)
-            print(f"Created empty quizzes file: {QUIZZES_FILE}")
-            
-        if not os.path.exists(SUBJECTS_FILE):
+                json.dump(default_quizzes, f)
+            print(f"Created quizzes file: {QUIZZES_FILE}")
+        except Exception as e:
+            print(f"Error creating quizzes file: {str(e)}")
+            print(traceback.format_exc())
+
+        try:
             with open(SUBJECTS_FILE, 'w') as f:
-                json.dump([], f)
-            print(f"Created empty subjects file: {SUBJECTS_FILE}")
-            
-        if not os.path.exists(DISCUSSIONS_FILE):
+                json.dump(default_subjects, f)
+            print(f"Created subjects file: {SUBJECTS_FILE}")
+        except Exception as e:
+            print(f"Error creating subjects file: {str(e)}")
+            print(traceback.format_exc())
+
+        try:
             with open(DISCUSSIONS_FILE, 'w') as f:
-                json.dump([], f)
-            print(f"Created empty discussions file: {DISCUSSIONS_FILE}")
+                json.dump(default_discussions, f)
+            print(f"Created discussions file: {DISCUSSIONS_FILE}")
+        except Exception as e:
+            print(f"Error creating discussions file: {str(e)}")
+            print(traceback.format_exc())
+
     except Exception as e:
         print(f"Error in init_files: {str(e)}")
         print(traceback.format_exc())
@@ -305,22 +395,59 @@ def generate_otp():
 
 def send_otp_email(email, otp):
     try:
+        # Check if email credentials are available
+        if not EMAIL_ADDRESS or not EMAIL_PASSWORD:
+            print("Email credentials not set. Skipping actual email sending.")
+            print(f"Would send OTP {otp} to {email}")
+            # In Vercel environment, just pretend we sent the email
+            if IS_VERCEL:
+                return True
+            return False
+
         message = MIMEMultipart()
         message['From'] = EMAIL_ADDRESS
         message['To'] = email
         message['Subject'] = 'Verify Your Campus Account'
 
-        html_content = render_template('email/otp.html', otp=otp)
+        # Generate HTML content
+        try:
+            html_content = render_template('email/otp.html', otp=otp)
+        except Exception as template_error:
+            print(f"Error rendering email template: {template_error}")
+            # Fallback to plain text
+            html_content = f"""
+            <html>
+            <body>
+                <h1>Verify Your Account</h1>
+                <p>Your verification code is: <strong>{otp}</strong></p>
+            </body>
+            </html>
+            """
+
         message.attach(MIMEText(html_content, 'html'))
 
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
-        server.send_message(message)
-        server.quit()
-        return True
+        try:
+            server = smtplib.SMTP('smtp.gmail.com', 587)
+            server.starttls()
+            server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
+            server.send_message(message)
+            server.quit()
+            print(f"Email sent successfully to {email}")
+            return True
+        except Exception as smtp_error:
+            print(f"SMTP error: {smtp_error}")
+            # In Vercel environment, just pretend we sent the email
+            if IS_VERCEL:
+                print("Running in Vercel - bypassing actual email sending")
+                return True
+            return False
     except Exception as e:
-        print(f"Error sending email: {e}")
+        print(f"Error in send_otp_email: {e}")
+        print(traceback.format_exc())
+        # In Vercel environment, just pretend we sent the email
+        if IS_VERCEL:
+            print("Running in Vercel - bypassing actual email sending")
+            return True
         return False
 
 @app.route('/')

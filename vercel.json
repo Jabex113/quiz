@@ -22,12 +22,14 @@
   ],
   "env": {
     "PYTHONUNBUFFERED": "1",
-    "VERCEL": "true"
+    "VERCEL": "true",
+    "FLASK_ENV": "production",
+    "FLASK_DEBUG": "0"
   },
   "functions": {
     "api/index.py": {
-      "memory": 1024,
-      "maxDuration": 10
+      "memory": 1536,
+      "maxDuration": 30
     },
     "api/simple.py": {
       "memory": 512,

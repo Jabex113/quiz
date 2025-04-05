@@ -74,21 +74,41 @@ try:
             
             # Handle the request using the Flask app
             response_data = []
-            
-            def start_response(status, response_headers, exc_info=None):
-                status_code = int(status.split(' ')[0])
-                headers_dict = dict(response_headers)
+            status_code = [200]
+            response_headers = [{'Content-Type': 'text/html'}]
+
+            def start_response(status, headers, exc_info=None):
+                status_code[0] = int(status.split(' ')[0])
+                response_headers[0] = dict(headers)
                 return lambda x: response_data.append(x)
-            
+
             # Get response from Flask app
             try:
-                response_body = b''.join(flask_app(environ, start_response))
+                # Call the Flask app with the WSGI environment
+                response_iter = flask_app(environ, start_response)
+                response_body = b''
+
+                # Collect all response chunks
+                for chunk in response_iter:
+                    if chunk:  # Skip empty chunks
+                        response_body += chunk if isinstance(chunk, bytes) else chunk.encode('utf-8')
+
+                # Close the iterator if it's closeable
+                if hasattr(response_iter, 'close'):
+                    response_iter.close()
+
+                # Convert bytes to string if needed
                 if isinstance(response_body, bytes):
-                    response_body = response_body.decode('utf-8')
-                
+                    try:
+                        response_body = response_body.decode('utf-8')
+                    except UnicodeDecodeError:
+                        # If we can't decode as UTF-8, use base64 encoding
+                        response_body = base64.b64encode(response_body).decode('ascii')
+                        response_headers[0]['Content-Encoding'] = 'base64'
+
                 return {
-                    'statusCode': 200,
-                    'headers': {'Content-Type': 'text/html'},
+                    'statusCode': status_code[0],
+                    'headers': response_headers[0],
                     'body': response_body
                 }
             except Exception as e:
