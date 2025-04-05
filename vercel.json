@@ -6,15 +6,7 @@
       "use": "@vercel/python"
     },
     {
-      "src": "api/simple.py",
-      "use": "@vercel/python"
-    },
-    {
       "src": "static/**",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "index.html",
       "use": "@vercel/static"
     }
   ],
@@ -22,14 +14,6 @@
     {
       "src": "/static/(.*)",
       "dest": "/static/$1"
-    },
-    {
-      "src": "/health",
-      "dest": "/api/simple.py"
-    },
-    {
-      "src": "/",
-      "dest": "/index.html"
     },
     {
       "src": "/(.*)",
