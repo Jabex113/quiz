@@ -1182,12 +1182,14 @@ if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
 
 # Vercel deployment handler
-from http.server import BaseHTTPRequestHandler
-
-class handler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.send_header('Content-type', 'text/plain')
-        self.end_headers()
-        self.wfile.write(b'Flask App is running!')
-        return
+def handler(request):
+    """Handle a request for Vercel deployment."""
+    try:
+        from werkzeug.middleware.proxy_fix import ProxyFix
+        # Apply proxy fix to handle Vercel's routing
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+        return app(request)
+    except Exception as e:
+        # Return error information for debugging
+        response = f"Error processing request: {str(e)}"
+        return response
