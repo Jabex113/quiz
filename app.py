@@ -11,10 +11,27 @@ import json
 import requests
 from datetime import datetime, timedelta
 import base64
-import numpy as np
-import cv2
 import io
 import re
+
+# Conditionally import numpy and cv2
+CV2_AVAILABLE = False
+try:
+    import numpy as np
+    import cv2
+    CV2_AVAILABLE = True
+except ImportError:
+    # Create dummy classes/functions for serverless environment
+    class DummyCV2:
+        def __getattr__(self, name):
+            return lambda *args, **kwargs: None
+    
+    class DummyNP:
+        def frombuffer(self, *args, **kwargs):
+            return None
+    
+    cv2 = DummyCV2()
+    np = DummyNP()
 
 load_dotenv()
 
@@ -586,6 +603,10 @@ def fail_quiz():
 def check_eyes():
     if 'user_email' not in session:
         return jsonify({'error': 'Not authenticated'}), 401
+    
+    # In serverless environment without cv2/numpy, return a dummy response
+    if not CV2_AVAILABLE:
+        return jsonify({'eyesOpen': True, 'serverless': True})
     
     try:
         # Get image data from POST request
