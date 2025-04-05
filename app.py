@@ -14,6 +14,9 @@ import base64
 import io
 import re
 
+# Check if running in Vercel serverless environment
+IS_VERCEL = os.environ.get('VERCEL', False)
+
 # Conditionally import numpy and cv2
 CV2_AVAILABLE = False
 try:
@@ -47,13 +50,49 @@ EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD')
 # DeepSeek API key - load from environment variable or use default for development
 DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY', "sk-289d0e34995441d9b01e878fbaa61e2b")
 
-USERS_FILE = 'users.txt'
-STORIES_FILE = 'database.txt'
-QUIZZES_FILE = 'quizzes.txt'
-SUBJECTS_FILE = 'subjects.txt'
-DISCUSSIONS_FILE = 'discussions.txt'
+# Define file paths based on environment
+if IS_VERCEL:
+    # In serverless, use /tmp directory for file operations
+    BASE_DIR = '/tmp'
+else:
+    # In local environment, use current directory
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+# Update file paths to use the correct directory
+USERS_FILE = os.path.join(BASE_DIR, 'users.txt')
+STORIES_FILE = os.path.join(BASE_DIR, 'database.txt')
+QUIZZES_FILE = os.path.join(BASE_DIR, 'quizzes.txt')
+SUBJECTS_FILE = os.path.join(BASE_DIR, 'subjects.txt')
+DISCUSSIONS_FILE = os.path.join(BASE_DIR, 'discussions.txt')
+
+# Initialize files with data from project directory if running on Vercel
 def init_files():
+    if IS_VERCEL:
+        # Copy data from project files to /tmp for Vercel environment
+        project_users = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'users.txt')
+        project_stories = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'database.txt')
+        project_quizzes = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'quizzes.txt')
+        
+        # Load data from project directory if files exist
+        if os.path.exists(project_users):
+            try:
+                with open(project_users, 'r') as f:
+                    users_data = json.load(f)
+                with open(USERS_FILE, 'w') as f:
+                    json.dump(users_data, f)
+            except Exception as e:
+                print(f"Error copying users data: {e}")
+        
+        if os.path.exists(project_quizzes):
+            try:
+                with open(project_quizzes, 'r') as f:
+                    quizzes_data = json.load(f)
+                with open(QUIZZES_FILE, 'w') as f:
+                    json.dump(quizzes_data, f)
+            except Exception as e:
+                print(f"Error copying quizzes data: {e}")
+    
+    # Create files if they don't exist
     if not os.path.exists(USERS_FILE):
         with open(USERS_FILE, 'w') as f:
             json.dump({}, f)
@@ -1201,10 +1240,37 @@ def record_suspicious_activity():
     
     return jsonify({'success': True})
 
-# Add basic route to verify app is working
 @app.route('/ping')
 def ping():
-    return 'pong'
+    return jsonify({
+        "status": "ok",
+        "message": "API is working!",
+        "app": "Campus Quiz"
+    })
+
+@app.route('/debug')
+def debug():
+    """Route for debugging serverless function issues"""
+    debug_info = {
+        "status": "ok",
+        "environment": "vercel" if IS_VERCEL else "local",
+        "files_exist": {
+            "users.txt": os.path.exists(USERS_FILE),
+            "database.txt": os.path.exists(STORIES_FILE),
+            "quizzes.txt": os.path.exists(QUIZZES_FILE),
+            "subjects.txt": os.path.exists(SUBJECTS_FILE),
+            "discussions.txt": os.path.exists(DISCUSSIONS_FILE)
+        },
+        "env_vars": {
+            "has_email": bool(EMAIL_ADDRESS),
+            "has_email_password": bool(EMAIL_PASSWORD),
+            "has_secret_key": bool(app.secret_key),
+            "has_deepseek_key": bool(DEEPSEEK_API_KEY)
+        },
+        "cv2_available": CV2_AVAILABLE,
+        "base_dir": BASE_DIR
+    }
+    return jsonify(debug_info)
 
 if __name__ == '__main__':
     # Just use HTTP for local development

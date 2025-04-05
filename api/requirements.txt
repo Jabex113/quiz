@@ -1,1 +1,7 @@
 # No external dependencies needed for the minimal handler 
+
+# Flask and related dependencies
+Flask==2.0.1
+Werkzeug==2.0.1
+python-dotenv==0.19.0
+requests==2.26.0 
