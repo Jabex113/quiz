@@ -10,6 +10,11 @@ import string
 import json
 import requests
 from datetime import datetime, timedelta
+import base64
+import numpy as np
+import cv2
+import io
+import re
 
 load_dotenv()
 
@@ -24,7 +29,9 @@ DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY', "sk-289d0e34995441d9b01e878fbaa
 
 USERS_FILE = 'users.txt'
 STORIES_FILE = 'database.txt'
-QUIZZES_FILE = 'quizzes.txt' 
+QUIZZES_FILE = 'quizzes.txt'
+SUBJECTS_FILE = 'subjects.txt'
+DISCUSSIONS_FILE = 'discussions.txt'
 
 def init_files():
     if not os.path.exists(USERS_FILE):
@@ -36,6 +43,43 @@ def init_files():
     if not os.path.exists(QUIZZES_FILE):
         with open(QUIZZES_FILE, 'w') as f:
             json.dump([], f)
+    if not os.path.exists(SUBJECTS_FILE):
+        with open(SUBJECTS_FILE, 'w') as f:
+            json.dump([], f)
+    if not os.path.exists(DISCUSSIONS_FILE):
+        with open(DISCUSSIONS_FILE, 'w') as f:
+            json.dump([], f)
+
+# Initialize subjects if the file is empty
+def init_subjects():
+    try:
+        subjects = load_subjects()
+        if not subjects:
+            # Default subjects for each strand
+            default_subjects = {
+                'STEM': ['Mathematics', 'Biology', 'Chemistry', 'Physics', 'Engineering'],
+                'ICT': ['Programming', 'Networking', 'Web Development', 'Database', 'Computer Systems'],
+                'HUMSS': ['Literature', 'History', 'Philosophy', 'Political Science', 'Economics'],
+                'TVL': ['Cookery', 'Computer Hardware', 'Beauty Care', 'Automotive', 'Electronics'],
+                'ABM': ['Accounting', 'Business Management', 'Marketing', 'Finance', 'Entrepreneurship']
+            }
+            
+            for strand, strand_subjects in default_subjects.items():
+                for subject in strand_subjects:
+                    subjects.append({
+                        'id': generate_id(),
+                        'name': subject,
+                        'strand': strand,
+                        'semester': 'First Semester',
+                        'created_at': datetime.now().isoformat()
+                    })
+            
+            save_subjects(subjects)
+    except Exception as e:
+        print(f"Error initializing subjects: {e}")
+
+def generate_id():
+    return ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
 
 def load_users():
     try:
@@ -70,6 +114,32 @@ def save_quizzes(quizzes):
     with open(QUIZZES_FILE, 'w') as f:
         json.dump(quizzes, f, indent=2)
 
+def load_subjects():
+    try:
+        with open(SUBJECTS_FILE, 'r') as f:
+            return json.load(f)
+    except:
+        return []
+
+def save_subjects(subjects):
+    with open(SUBJECTS_FILE, 'w') as f:
+        json.dump(subjects, f, indent=2)
+
+def load_discussions():
+    try:
+        with open(DISCUSSIONS_FILE, 'r') as f:
+            return json.load(f)
+    except:
+        return []
+
+def save_discussions(discussions):
+    with open(DISCUSSIONS_FILE, 'w') as f:
+        json.dump(discussions, f, indent=2)
+
+# Call init_files when the app starts
+init_files()
+init_subjects()
+
 def get_icons_by_category():
     return {
         'Math': 'fa-square-root-alt',
@@ -91,7 +161,12 @@ def get_icons_by_category():
         'Beauty Care': 'fa-spa',
         'Computer Hardware': 'fa-desktop',
         'Electronics': 'fa-microchip',
-        'Automotive': 'fa-car'
+        'Automotive': 'fa-car',
+        'Accounting': 'fa-calculator',
+        'Business Management': 'fa-briefcase',
+        'Marketing': 'fa-bullhorn',
+        'Finance': 'fa-money-bill-wave',
+        'Entrepreneurship': 'fa-store'
     }
 
 def get_strand_categories(strand):
@@ -99,7 +174,8 @@ def get_strand_categories(strand):
         'STEM': ['Math', 'Physics', 'Chemistry', 'Biology', 'Engineering'],
         'ICT': ['Programming', 'Networking', 'Web Development', 'Database', 'Computer Systems'],
         'HUMSS': ['Literature', 'History', 'Philosophy', 'Political Science', 'Economics'],
-        'TVL': ['Cookery', 'Computer Hardware', 'Beauty Care', 'Automotive', 'Electronics']
+        'TVL': ['Cookery', 'Computer Hardware', 'Beauty Care', 'Automotive', 'Electronics'],
+        'ABM': ['Accounting', 'Business Management', 'Marketing', 'Finance', 'Entrepreneurship']
     }
     return categories.get(strand, [])
 
@@ -340,6 +416,7 @@ def change_password():
 
     flash('Password changed successfully', 'success')
     return redirect(url_for('dashboard'))
+
 @app.route('/nimda/delete_quiz/<quiz_id>', methods=['POST'])
 def admin_delete_quiz(quiz_id):
     if 'admin_logged_in' not in session:
@@ -351,77 +428,202 @@ def admin_delete_quiz(quiz_id):
 
     flash('Quiz deleted successfully', 'success')
     return redirect(url_for('admin_dashboard'))
+
 @app.route('/start_quiz/<quiz_id>')
 def start_quiz(quiz_id):
     if 'user_email' not in session:
         return redirect(url_for('index'))
-
+    
     quizzes = load_quizzes()
     quiz = next((q for q in quizzes if q['id'] == quiz_id), None)
     
-    if not quiz or 'questions' not in quiz:
-        flash('Quiz not available yet', 'error')
+    if not quiz:
+        flash('Quiz not found', 'error')
         return redirect(url_for('dashboard'))
+    
+    if 'questions' not in quiz or not quiz['questions']:
+        flash('This quiz has no questions yet', 'error')
+        return redirect(url_for('dashboard'))
+    
+    # Create a time expiration if time limit is set
+    if quiz.get('time_limit', 0) > 0:
+        session['quiz_end_time'] = (datetime.now() + timedelta(minutes=quiz['time_limit'])).isoformat()
+    else:
+        session.pop('quiz_end_time', None)  # No time limit
+    
+    # Record the start of the quiz
+    session['active_quiz'] = {
+        'id': quiz_id,
+        'started_at': datetime.now().isoformat()
+    }
+    
+    return render_template('quiz.html', quiz=quiz, quiz_id=quiz_id)
 
-    return render_template('quiz.html', quiz=quiz)
-
-@app.route('/submit_quiz', methods=['POST'])
+@app.route('/submit-quiz', methods=['POST'])
 def submit_quiz():
-    if 'user_email' not in session:
-        return redirect(url_for('index'))
-
+    if 'user_email' not in session or 'active_quiz' not in session:
+        return jsonify({'success': False, 'redirect': url_for('index')})
+    
+    # Check if quiz time has expired
+    if 'quiz_end_time' in session:
+        end_time = datetime.fromisoformat(session['quiz_end_time'])
+        if datetime.now() > end_time:
+            # Time expired
+            return jsonify({
+                'success': False, 
+                'message': 'Time limit exceeded',
+                'redirect': url_for('dashboard')
+            })
+    
     quiz_id = request.form.get('quiz_id')
-    user_answers = request.form.to_dict()
-
-    # Remove non-answer keys
-    user_answers.pop('quiz_id', None)
-
     quizzes = load_quizzes()
-    quiz = next((q for q in quizzes if q['id'] == quiz_id), None)
     
-    if not quiz or 'questions' not in quiz:
-        flash('Invalid quiz', 'error')
+    # Find the quiz
+    quiz = None
+    for q in quizzes:
+        if str(q.get('id')) == quiz_id:
+            quiz = q
+            break
+    
+    if not quiz:
+        flash('Quiz not found', 'error')
         return redirect(url_for('dashboard'))
-
-    # Calculate score
-    total_questions = len(quiz['questions'])
     
-    # Track correct questions for more detailed review
-    correct_questions = []
-    incorrect_questions = []
-
-    for i, question in enumerate(quiz['questions']):
-        user_answer = user_answers.get(f'question_{i}')
-        if user_answer is not None and int(user_answer) == question['correct_answer']:
-            correct_questions.append(i)
-        else:
-            incorrect_questions.append(i)
-
-    correct_answers = len(correct_questions)
-    score_percentage = (correct_answers / total_questions) * 100
-
-    # Record user's quiz result
+    # Process answers
+    score = 0
+    total_questions = len(quiz.get('questions', []))
+    answers = {}
+    
+    for i, question in enumerate(quiz.get('questions', [])):
+        selected_answer = request.form.get(f'question_{i}')
+        correct_answer = question.get('correct_answer')
+        
+        answers[f'question_{i}'] = {
+            'question': question.get('question'),
+            'selected_answer': selected_answer,
+            'correct_answer': correct_answer,
+            'is_correct': selected_answer == correct_answer
+        }
+        
+        if selected_answer == correct_answer:
+            score += 1
+    
+    # Calculate percentage
+    percentage = round((score / total_questions) * 100) if total_questions > 0 else 0
+    
+    # Record quiz result
     users = load_users()
     user_email = session['user_email']
+    
     if user_email in users:
         if 'quiz_history' not in users[user_email]:
             users[user_email]['quiz_history'] = []
         
         users[user_email]['quiz_history'].append({
             'quiz_id': quiz_id,
-            'quiz_title': quiz['title'],
-            'score': score_percentage,
-            'date': datetime.now().isoformat()
+            'quiz_title': quiz.get('title'),
+            'score': score,
+            'total_questions': total_questions,
+            'percentage': percentage,
+            'timestamp': datetime.now().isoformat()
         })
+        
         save_users(users)
-
-    # Render results page
+    
     return render_template('quiz_results.html', 
-                           quiz=quiz, 
-                           score=correct_answers, 
-                           total=total_questions, 
-                           score_percentage=score_percentage,
-                           correct_questions=correct_questions)
+                          quiz=quiz,
+                          score=score,
+                          total_questions=total_questions,
+                          percentage=percentage,
+                          answers=answers)
+
+@app.route('/fail-quiz', methods=['POST'])
+def fail_quiz():
+    if 'user_email' not in session:
+        return redirect(url_for('index'))
+    
+    quiz_id = request.form.get('quiz_id')
+    quizzes = load_quizzes()
+    
+    # Find the quiz
+    quiz = None
+    for q in quizzes:
+        if str(q.get('id')) == quiz_id:
+            quiz = q
+            break
+    
+    if not quiz:
+        flash('Quiz not found', 'error')
+        return redirect(url_for('dashboard'))
+    
+    # Record failed quiz result due to eye tracking violation
+    users = load_users()
+    user_email = session['user_email']
+    
+    if user_email in users:
+        if 'quiz_history' not in users[user_email]:
+            users[user_email]['quiz_history'] = []
+        
+        users[user_email]['quiz_history'].append({
+            'quiz_id': quiz_id,
+            'quiz_title': quiz.get('title'),
+            'score': 0,
+            'total_questions': len(quiz.get('questions', [])),
+            'percentage': 0,
+            'failed_reason': 'Eye tracking violation detected',
+            'timestamp': datetime.now().isoformat()
+        })
+        
+        save_users(users)
+    
+    flash('Quiz failed: Eye tracking violation detected. Your eyes were off screen for too long.', 'error')
+    return redirect(url_for('dashboard'))
+
+@app.route('/api/check-eyes', methods=['POST'])
+def check_eyes():
+    if 'user_email' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    try:
+        # Get image data from POST request
+        image_data = request.json.get('image', '')
+        if not image_data or not image_data.startswith('data:image'):
+            return jsonify({'error': 'Invalid image data'}), 400
+        
+        # Decode base64 image
+        image_data = image_data.split(',')[1]
+        image_bytes = base64.b64decode(image_data)
+        
+        # Convert to OpenCV format
+        np_arr = np.frombuffer(image_bytes, np.uint8)
+        img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+        
+        # Convert to grayscale for face detection
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        
+        # Load face detector
+        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+        eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
+        
+        # Detect faces
+        faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+        
+        if len(faces) == 0:
+            return jsonify({'eyesOpen': False, 'reason': 'No face detected'})
+        
+        # Check for eyes in the face
+        eyes_detected = False
+        for (x, y, w, h) in faces:
+            roi_gray = gray[y:y+h, x:x+w]
+            eyes = eye_cascade.detectMultiScale(roi_gray)
+            if len(eyes) >= 1:  # At least one eye detected
+                eyes_detected = True
+                break
+        
+        return jsonify({'eyesOpen': eyes_detected})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/logout')
 def logout():
@@ -450,41 +652,157 @@ def admin_dashboard():
     quizzes = load_quizzes()
     return render_template('nimda/admin_dashboard.html', quizzes=quizzes)
 
-@app.route('/nimda/post_quiz', methods=['POST'])
-def admin_post_quiz():
+@app.route('/nimda/subjects')
+def admin_subjects():
     if 'admin_logged_in' not in session:
         return redirect(url_for('admin_login'))
+    
+    subjects = load_subjects()
+    return render_template('nimda/subjects.html', subjects=subjects)
 
+@app.route('/nimda/add_subject', methods=['POST'])
+def admin_add_subject():
+    if 'admin_logged_in' not in session:
+        return jsonify({'success': False, 'error': 'Not authorized'})
+    
+    name = request.form.get('name')
     strand = request.form.get('strand')
-    category = request.form.get('quiz_category')
-    title = request.form.get('quiz_title')
-    description = request.form.get('quiz_description')
-    topics = request.form.get('quiz_topics')
-
-    if not all([strand, category, title, description, topics]):
-        flash('All fields are required', 'error')
-        return redirect(url_for('admin_dashboard'))
-
-    # Verify category belongs to strand
-    strand_categories = get_strand_categories(strand)
-    if category not in strand_categories:
-        flash('Invalid category for selected strand', 'error')
-        return redirect(url_for('admin_dashboard'))
-
-    quizzes = load_quizzes()
-    quizzes.append({
-        'id': str(random.randint(1000, 9999)),
-        'title': title,
-        'description': description,
-        'topics': topics,
-        'category': category,
+    semester = request.form.get('semester')
+    
+    if not all([name, strand, semester]):
+        return jsonify({'success': False, 'error': 'Missing required fields'})
+    
+    subjects = load_subjects()
+    
+    # Check if subject already exists for this strand and semester
+    if any(s['name'] == name and s['strand'] == strand and s['semester'] == semester for s in subjects):
+        return jsonify({'success': False, 'error': 'Subject already exists for this strand and semester'})
+    
+    new_subject = {
+        'id': generate_id(),
+        'name': name,
         'strand': strand,
-        'timestamp': datetime.now().isoformat()
+        'semester': semester,
+        'created_at': datetime.now().isoformat()
+    }
+    
+    subjects.append(new_subject)
+    save_subjects(subjects)
+    
+    return jsonify({
+        'success': True,
+        'subject': new_subject,
+        'message': 'Subject added successfully'
     })
-    save_quizzes(quizzes)
 
-    flash('Quiz posted successfully', 'success')
-    return redirect(url_for('admin_dashboard'))
+@app.route('/nimda/edit_subject/<subject_id>', methods=['POST'])
+def admin_edit_subject(subject_id):
+    if 'admin_logged_in' not in session:
+        return jsonify({'success': False, 'error': 'Not authorized'})
+    
+    name = request.form.get('name')
+    strand = request.form.get('strand')
+    semester = request.form.get('semester')
+    
+    if not all([name, strand, semester]):
+        return jsonify({'success': False, 'error': 'Missing required fields'})
+    
+    subjects = load_subjects()
+    subject = next((s for s in subjects if s['id'] == subject_id), None)
+    
+    if not subject:
+        return jsonify({'success': False, 'error': 'Subject not found'})
+    
+    # Check if another subject with the same details already exists
+    if any(s['name'] == name and s['strand'] == strand and s['semester'] == semester and s['id'] != subject_id for s in subjects):
+        return jsonify({'success': False, 'error': 'Another subject with these details already exists'})
+    
+    subject['name'] = name
+    subject['strand'] = strand
+    subject['semester'] = semester
+    subject['updated_at'] = datetime.now().isoformat()
+    
+    save_subjects(subjects)
+    
+    return jsonify({
+        'success': True,
+        'subject': subject,
+        'message': 'Subject updated successfully'
+    })
+
+@app.route('/nimda/delete_subject/<subject_id>', methods=['POST'])
+def admin_delete_subject(subject_id):
+    if 'admin_logged_in' not in session:
+        return jsonify({'success': False, 'error': 'Not authorized'})
+    
+    subjects = load_subjects()
+    subject = next((s for s in subjects if s['id'] == subject_id), None)
+    
+    if not subject:
+        return jsonify({'success': False, 'error': 'Subject not found'})
+    
+    # Check if subject is being used in any quizzes
+    quizzes = load_quizzes()
+    if any(q.get('subject_id') == subject_id for q in quizzes):
+        return jsonify({'success': False, 'error': 'Cannot delete subject that is being used in quizzes'})
+    
+    subjects = [s for s in subjects if s['id'] != subject_id]
+    save_subjects(subjects)
+    
+    return jsonify({
+        'success': True,
+        'message': 'Subject deleted successfully'
+    })
+
+@app.route('/get_subjects/<strand>')
+def get_subjects(strand):
+    subjects = load_subjects()
+    strand_subjects = [s for s in subjects if s['strand'] == strand]
+    return jsonify(strand_subjects)
+
+@app.route('/nimda/post_quiz', methods=['POST'])
+def admin_post_quiz():
+    try:
+        title = request.form.get('title')
+        description = request.form.get('description')
+        strand = request.form.get('strand')
+        category = request.form.get('category')
+        subject_id = request.form.get('subject_id')
+        time_limit = request.form.get('time_limit', '0')  # Default to 0 (no limit)
+        
+        # Validate time limit is a number
+        try:
+            time_limit = int(time_limit)
+        except:
+            time_limit = 0  # Default to no time limit if invalid
+        
+        if not all([title, description, strand, category]):
+            return jsonify({'success': False, 'error': 'Missing required fields'})
+        
+        quizzes = load_quizzes()
+        
+        new_quiz = {
+            'id': str(random.randint(10000, 99999)),
+            'title': title,
+            'description': description,
+            'strand': strand,
+            'category': category,
+            'subject_id': subject_id,
+            'questions': [],
+            'time_limit': time_limit,  # Store time limit in minutes
+            'created_at': datetime.now().isoformat()
+        }
+        
+        quizzes.append(new_quiz)
+        save_quizzes(quizzes)
+        
+        return jsonify({
+            'success': True, 
+            'quiz_id': new_quiz['id'],
+            'message': 'Quiz created successfully'
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/nimda/get_quiz_questions/<quiz_id>')
 def get_quiz_questions(quiz_id):
@@ -503,46 +821,78 @@ def get_quiz_questions(quiz_id):
     })
 
 @app.route('/nimda/save_quiz_questions', methods=['POST'])
-def save_quiz_questions():
+def admin_save_quiz_questions():
     if 'admin_logged_in' not in session:
-        return jsonify({'error': 'Unauthorized'}), 401
-
+        return redirect(url_for('admin_login'))
+    
     quiz_id = request.form.get('quiz_id')
-    questions = []
-
-    # Process form data
-    form_data = request.form.to_dict(flat=False)
-
-    # Get all question texts
-    question_texts = form_data.get('questions[]', [])
-
-    # Process each question
-    for i, question_text in enumerate(question_texts):
-        # Get options for this question
-        options_key = f'options_{i}[]'
-        options = form_data.get(options_key, [])
-
-        # Get correct answer
-        correct_key = f'correct_answer_{i}'
-        correct_answer = int(request.form.get(correct_key, 0))
-
-        question = {
-            'question': question_text,
-            'options': options,
-            'correct_answer': correct_answer
-        }
-
-        questions.append(question)
-
+    question_texts = request.form.getlist('questions[]')
+    
+    # Find the quiz
     quizzes = load_quizzes()
-    for quiz in quizzes:
-        if quiz['id'] == quiz_id:
-            quiz['questions'] = questions
+    quiz = None
+    for q in quizzes:
+        if q['id'] == quiz_id:
+            quiz = q
             break
-
+    
+    if not quiz:
+        return jsonify({'error': 'Quiz not found'}), 404
+    
+    # Process questions
+    questions = []
+    for i in range(len(question_texts)):
+        # Get correct answer
+        correct_answer = request.form.get(f'correct_answer_{i}')
+        if not correct_answer:
+            return jsonify({'error': f'Missing correct answer for question {i+1}'}), 400
+        
+        # Get time for this question
+        time_per_question = request.form.get(f'time_per_question_{i}', 30)
+        try:
+            time_per_question = int(time_per_question)
+            if time_per_question < 10:
+                time_per_question = 10
+            elif time_per_question > 300:
+                time_per_question = 300
+        except:
+            time_per_question = 30
+        
+        # Get options
+        options = []
+        option_values = request.form.getlist(f'options_{i}[]')
+        if option_values:
+            options = option_values
+        else:
+            # Try alternate format
+            for j in range(4):  # Assuming 4 options per question
+                option = request.form.get(f'option_{j}_{i}')
+                if option:
+                    options.append(option)
+        
+        if len(options) < 2:
+            return jsonify({'error': f'Not enough options for question {i+1}'}), 400
+        
+        # Create question object
+        question = {
+            'question': question_texts[i],
+            'options': options,
+            'correct_answer': int(correct_answer),
+            'time_per_question': time_per_question
+        }
+        
+        questions.append(question)
+    
+    # Update quiz with questions
+    quiz['questions'] = questions
+    
+    # Calculate total quiz time (sum of all question times)
+    total_time = sum(q['time_per_question'] for q in questions)
+    quiz['total_time'] = total_time
+    
     save_quizzes(quizzes)
+    
     return jsonify({'success': True}), 200
-
 
 @app.route('/get_categories/<strand>')
 def get_categories(strand):
@@ -682,9 +1032,162 @@ def get_ai_response():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
-init_files()
+@app.route('/quiz-discussion/<quiz_id>')
+def quiz_discussion(quiz_id):
+    if 'user_email' not in session:
+        return redirect(url_for('index'))
+    
+    quizzes = load_quizzes()
+    quiz = next((q for q in quizzes if q['id'] == quiz_id), None)
+    
+    if not quiz:
+        flash('Quiz not found', 'error')
+        return redirect(url_for('dashboard'))
+    
+    discussions = load_discussions()
+    quiz_discussions = [d for d in discussions if d['quiz_id'] == quiz_id]
+    
+    return render_template('discussion.html', 
+                          quiz=quiz, 
+                          discussions=quiz_discussions, 
+                          user_email=session['user_email'],
+                          username=session['username'])
+
+@app.route('/post-discussion', methods=['POST'])
+def post_discussion():
+    if 'user_email' not in session:
+        return jsonify({'success': False, 'error': 'Not authenticated'})
+    
+    quiz_id = request.form.get('quiz_id')
+    content = request.form.get('content')
+    
+    if not quiz_id or not content:
+        return jsonify({'success': False, 'error': 'Missing required fields'})
+    
+    # Check for inappropriate content
+    if contains_inappropriate_content(content):
+        return jsonify({'success': False, 'error': 'Your message contains inappropriate content'})
+    
+    discussions = load_discussions()
+    
+    new_discussion = {
+        'id': generate_id(),
+        'quiz_id': quiz_id,
+        'user_email': session['user_email'],
+        'username': session['username'],
+        'content': content,
+        'created_at': datetime.now().isoformat(),
+        'replies': []
+    }
+    
+    discussions.append(new_discussion)
+    save_discussions(discussions)
+    
+    return jsonify({
+        'success': True,
+        'discussion': new_discussion
+    })
+
+@app.route('/post-reply', methods=['POST'])
+def post_reply():
+    if 'user_email' not in session:
+        return jsonify({'success': False, 'error': 'Not authenticated'})
+    
+    discussion_id = request.form.get('discussion_id')
+    content = request.form.get('content')
+    
+    if not discussion_id or not content:
+        return jsonify({'success': False, 'error': 'Missing required fields'})
+    
+    # Check for inappropriate content
+    if contains_inappropriate_content(content):
+        return jsonify({'success': False, 'error': 'Your reply contains inappropriate content'})
+    
+    discussions = load_discussions()
+    discussion = next((d for d in discussions if d['id'] == discussion_id), None)
+    
+    if not discussion:
+        return jsonify({'success': False, 'error': 'Discussion not found'})
+    
+    reply = {
+        'id': generate_id(),
+        'user_email': session['user_email'],
+        'username': session['username'],
+        'content': content,
+        'created_at': datetime.now().isoformat()
+    }
+    
+    if 'replies' not in discussion:
+        discussion['replies'] = []
+    
+    discussion['replies'].append(reply)
+    save_discussions(discussions)
+    
+    return jsonify({
+        'success': True,
+        'reply': reply
+    })
+
+def contains_inappropriate_content(text):
+    # Simple profanity filter
+    profanity_list = [
+        'fuck', 'shit', 'ass', 'bitch', 'dick', 'pussy', 'cock', 
+        'cunt', 'damn', 'bastard', 'asshole', 'piss'
+    ]
+    
+    text_lower = text.lower()
+    
+    for word in profanity_list:
+        if word in text_lower:
+            return True
+    
+    return False
+
+@app.route('/record-suspicious-activity', methods=['POST'])
+def record_suspicious_activity():
+    if 'user_email' not in session or 'active_quiz' not in session:
+        return jsonify({'success': False, 'error': 'Not authorized'})
+    
+    data = request.json
+    quiz_id = data.get('quiz_id')
+    activity_type = data.get('activity_type')
+    
+    if not quiz_id or not activity_type:
+        return jsonify({'success': False, 'error': 'Missing required fields'})
+    
+    # Load users and find the current user
+    users = load_users()
+    user = users.get(session['user_email'])
+    
+    if not user:
+        return jsonify({'success': False, 'error': 'User not found'})
+    
+    # Initialize cheating_activities if it doesn't exist
+    if 'cheating_activities' not in user:
+        user['cheating_activities'] = []
+    
+    # Add the suspicious activity
+    user['cheating_activities'].append({
+        'quiz_id': quiz_id,
+        'activity_type': activity_type,
+        'timestamp': datetime.now().isoformat()
+    })
+    
+    save_users(users)
+    
+    return jsonify({'success': True})
 
 if __name__ == '__main__':
-    port = int(os.environ
-    .get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    # Just use HTTP for local development
+    app.run(host='0.0.0.0', port=5000, debug=True)
+
+# Vercel deployment handler
+from http.server import BaseHTTPRequestHandler
+
+class handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/plain')
+        self.end_headers()
+        self.wfile.write(b'Flask App is running!')
+        return

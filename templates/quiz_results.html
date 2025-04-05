@@ -160,54 +160,63 @@
 </head>
 <body>
     <div class="results-container">
-        {% if score_percentage >= 60 %}
-        <div class="result-icon result-passed">
-            <i class="fas fa-trophy"></i>
-        </div>
-        {% else %}
-        <div class="result-icon result-failed">
-            <i class="fas fa-times-circle"></i>
-        </div>
-        {% endif %}
-
-        <div class="score-details">
-            <div class="score-percentage">
-                {{ "%.1f"|format(score_percentage) }}%
-            </div>
-            
-            {% if score_percentage >= 90 %}
-            <div class="grade-text">Excellent! You scored an A.</div>
-            {% elif score_percentage >= 80 %}
-            <div class="grade-text">Great Job! You scored a B.</div>
-            {% elif score_percentage >= 60 %}
-            <div class="grade-text">Good Effort! You scored a C.</div>
-            {% else %}
-            <div class="grade-text">Need Improvement. You did not pass.</div>
-            {% endif %}
-        </div>
-
-        <div class="quiz-details">
-            <h3>{{ quiz.title }}</h3>
-            <p>Total Questions: {{ total }}</p>
-            <p>Correct Answers: {{ score }}</p>
-        </div>
-
-        <div class="question-review">
-            <h4>Question Review</h4>
-            {% for index in range(quiz.questions|length) %}
-            <div class="review-item {% if index < score %}correct{% else %}incorrect{% endif %}">
-                <div class="review-item-header">
-                    <strong>Question {{ index + 1 }}</strong>
-                    <span class="review-status">
-                        {% if index < score %}Correct{% else %}Incorrect{% endif %}
-                    </span>
+        <div class="results-header">
+            <h2>{{ quiz.title }} - Results</h2>
+            <div class="quiz-score">
+                <div class="score-circle">
+                    <div class="score-value">{{ percentage }}%</div>
                 </div>
-                <p>{{ quiz.questions[index].question }}</p>
-                <p>
-                    <strong>Correct Answer:</strong> 
-                    {{ quiz.questions[index].options[quiz.questions[index].correct_answer] }}
-                </p>
+                <div class="score-details">
+                    <div>{{ score }} out of {{ total_questions }} correct</div>
+                    {% if percentage >= 75 %}
+                        <div class="score-message success">Excellent work!</div>
+                    {% elif percentage >= 50 %}
+                        <div class="score-message average">Good effort!</div>
+                    {% else %}
+                        <div class="score-message poor">Needs improvement</div>
+                    {% endif %}
+                </div>
             </div>
+        </div>
+
+        <div class="results-summary">
+            {% if 'failed_reason' in quiz %}
+                <div class="failed-quiz">
+                    <div class="failed-icon"><i class="fas fa-exclamation-triangle"></i></div>
+                    <div class="failed-message">Quiz Failed: {{ quiz.failed_reason }}</div>
+                </div>
+            {% endif %}
+            <h3>Quiz Review</h3>
+            
+            {% for i in range(quiz.questions|length) %}
+                {% set question = quiz.questions[i] %}
+                {% set answer_data = answers["question_" ~ i] %}
+                <div class="review-question {% if answer_data.is_correct %}correct{% else %}incorrect{% endif %}">
+                    <div class="question-status">
+                        {% if answer_data.is_correct %}
+                            <i class="fas fa-check-circle"></i>
+                        {% else %}
+                            <i class="fas fa-times-circle"></i>
+                        {% endif %}
+                    </div>
+                    <div class="question-content">
+                        <div class="question-text">{{ question.question }}</div>
+                        <div class="answer-details">
+                            {% if answer_data.is_correct %}
+                                <div class="correct-answer">
+                                    Your answer: {{ question.options[answer_data.selected_answer|int] }}
+                                </div>
+                            {% else %}
+                                <div class="wrong-answer">
+                                    Your answer: {% if answer_data.selected_answer %}{{ question.options[answer_data.selected_answer|int] }}{% else %}No answer selected{% endif %}
+                                </div>
+                                <div class="correct-answer">
+                                    Correct answer: {{ question.options[answer_data.correct_answer|int] }}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
             {% endfor %}
         </div>
 

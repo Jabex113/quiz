@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ quiz.title }} - Discussion</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        body {
+            background: #f3f4f6;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .header h1 {
+            color: #1f2937;
+            font-size: 1.8rem;
+        }
+
+        .back-btn {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .back-btn:hover {
+            background: #4f46e5;
+        }
+
+        .back-btn i {
+            margin-right: 8px;
+        }
+
+        .quiz-info {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .quiz-info h2 {
+            color: #4f46e5;
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+        }
+
+        .quiz-info p {
+            color: #4b5563;
+            line-height: 1.6;
+        }
+
+        .discussion-form {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .discussion-form h3 {
+            color: #1f2937;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+
+        .discussion-form textarea {
+            width: 100%;
+            height: 120px;
+            padding: 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            resize: vertical;
+            margin-bottom: 15px;
+            font-size: 15px;
+        }
+
+        .discussion-form textarea:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+
+        .submit-btn {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 500;
+        }
+
+        .submit-btn:hover {
+            background: #4f46e5;
+        }
+
+        .discussions {
+            margin-bottom: 30px;
+        }
+
+        .discussions h3 {
+            color: #1f2937;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+
+        .discussion-item {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .discussion-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #6366f1;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+
+        .user-name {
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .discussion-date {
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .discussion-content {
+            color: #4b5563;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .reply-btn {
+            color: #6366f1;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+            padding: 0;
+            transition: all 0.2s ease;
+        }
+
+        .reply-btn:hover {
+            color: #4f46e5;
+            text-decoration: underline;
+        }
+
+        .replies {
+            margin-top: 20px;
+            margin-left: 20px;
+            border-left: 3px solid #e5e7eb;
+            padding-left: 15px;
+        }
+
+        .reply-item {
+            background: #f9fafb;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+
+        .reply-form {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #e5e7eb;
+            display: none;
+        }
+
+        .reply-form textarea {
+            width: 100%;
+            height: 80px;
+            padding: 10px;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            resize: vertical;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .reply-form textarea:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+
+        .reply-form button {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .reply-form button:hover {
+            background: #4f46e5;
+        }
+
+        .no-discussions {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            color: #6b7280;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .no-discussions i {
+            font-size: 40px;
+            color: #d1d5db;
+            margin-bottom: 15px;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Discussion Forum</h1>
+            <a href="{{ url_for('dashboard') }}" class="back-btn">
+                <i class="fas fa-arrow-left"></i> Back to Dashboard
+            </a>
+        </div>
+
+        <div class="quiz-info">
+            <h2>{{ quiz.title }}</h2>
+            <p>{{ quiz.description }}</p>
+        </div>
+
+        <div class="discussion-form">
+            <h3>Start a Discussion</h3>
+            <form id="newDiscussionForm">
+                <input type="hidden" name="quiz_id" value="{{ quiz.id }}">
+                <textarea name="content" placeholder="Share your thoughts, ask questions, or discuss the quiz..."></textarea>
+                <button type="submit" class="submit-btn">Post Discussion</button>
+            </form>
+        </div>
+
+        <div class="discussions">
+            <h3>Discussions ({{ discussions|length }})</h3>
+
+            {% if discussions %}
+                {% for discussion in discussions|sort(attribute='created_at', reverse=True) %}
+                <div class="discussion-item" id="discussion-{{ discussion.id }}">
+                    <div class="discussion-header">
+                        <div class="user-info">
+                            <div class="user-avatar">{{ discussion.username[0]|upper }}</div>
+                            <div class="user-name">{{ discussion.username }}</div>
+                        </div>
+                        <div class="discussion-date">
+                            {{ discussion.created_at|replace('T', ' ')|replace('Z', '')|replace('.000000', '') }}
+                        </div>
+                    </div>
+                    <div class="discussion-content">{{ discussion.content }}</div>
+                    <button class="reply-btn" onclick="toggleReplyForm('{{ discussion.id }}')">Reply</button>
+
+                    <div class="reply-form" id="reply-form-{{ discussion.id }}">
+                        <form onsubmit="postReply(event, '{{ discussion.id }}')">
+                            <textarea name="content" placeholder="Write your reply..."></textarea>
+                            <button type="submit">Post Reply</button>
+                        </form>
+                    </div>
+
+                    {% if discussion.replies and discussion.replies|length > 0 %}
+                    <div class="replies">
+                        {% for reply in discussion.replies|sort(attribute='created_at') %}
+                        <div class="reply-item">
+                            <div class="discussion-header">
+                                <div class="user-info">
+                                    <div class="user-avatar">{{ reply.username[0]|upper }}</div>
+                                    <div class="user-name">{{ reply.username }}</div>
+                                </div>
+                                <div class="discussion-date">
+                                    {{ reply.created_at|replace('T', ' ')|replace('Z', '')|replace('.000000', '') }}
+                                </div>
+                            </div>
+                            <div class="discussion-content">{{ reply.content }}</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="no-discussions">
+                    <i class="fas fa-comments"></i>
+                    <p>No discussions yet. Be the first to start a discussion!</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        // Toggle reply form visibility
+        function toggleReplyForm(discussionId) {
+            const replyForm = document.getElementById(`reply-form-${discussionId}`);
+            if (replyForm.style.display === 'block') {
+                replyForm.style.display = 'none';
+            } else {
+                replyForm.style.display = 'block';
+                replyForm.querySelector('textarea').focus();
+            }
+        }
+
+        // Post a new discussion
+        document.getElementById('newDiscussionForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const content = formData.get('content').trim();
+            
+            if (!content) {
+                alert('Please enter some content for your discussion');
+                return;
+            }
+            
+            fetch('/post-discussion', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Reload the page to show the new discussion
+                    location.reload();
+                } else {
+                    alert(data.error || 'Failed to post discussion');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while posting your discussion');
+            });
+        });
+
+        // Post a reply to a discussion
+        function postReply(e, discussionId) {
+            e.preventDefault();
+            
+            const form = e.target;
+            const content = form.elements.content.value.trim();
+            
+            if (!content) {
+                alert('Please enter some content for your reply');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('discussion_id', discussionId);
+            formData.append('content', content);
+            
+            fetch('/post-reply', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Reload the page to show the new reply
+                    location.reload();
+                } else {
+                    alert(data.error || 'Failed to post reply');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while posting your reply');
+            });
+        }
+    </script>
+</body>
+</html> 

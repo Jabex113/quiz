@@ -227,6 +227,34 @@ body {
             resize: vertical;
         }
 
+        .time-setting {
+            margin: 15px 0;
+            display: flex;
+            align-items: center;
+            background: #f0f9ff;
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 3px solid #3b82f6;
+        }
+
+        .time-setting label {
+            font-size: 14px;
+            margin-right: 10px;
+            margin-bottom: 0;
+            white-space: nowrap;
+            color: #1e40af;
+        }
+
+        .time-setting input[type="number"] {
+            width: 100px;
+            padding: 8px;
+            border: 1px solid #bfdbfe;
+            border-radius: 4px;
+            background: white;
+            color: #1e40af;
+            font-weight: 500;
+        }
+
         .options-container {
             margin-top: 15px;
             background: #fff;
@@ -285,6 +313,7 @@ body {
             <option value="ICT">ICT</option>
             <option value="HUMSS">HUMSS</option>
             <option value="TVL">TVL</option>
+            <option value="ABM">ABM</option>
         </select>
 
         <label for="quiz_category">Quiz Category:</label>
@@ -300,6 +329,10 @@ body {
 
         <label for="quiz_topics">Quiz Topics (comma separated):</label>
         <input type="text" id="quiz_topics" name="quiz_topics" placeholder="e.g., Topic1, Topic2, Topic3" required>
+
+        <label for="time_per_question">Time per Question (seconds):</label>
+        <input type="number" id="time_per_question" name="time_per_question" value="30" min="10" max="300" required>
+        <small>Set how much time students will have for each question (10-300 seconds)</small>
 
         <button type="submit">Post Quiz</button>
     </form>
@@ -413,6 +446,11 @@ body {
                 <label>Question ${questionIndex + 1}:</label>
                 <textarea name="questions[]" required class="question-input" rows="3"></textarea>
                 <input type="hidden" name="question_index[]" value="${questionIndex}">
+                
+                <div class="time-setting">
+                    <label>Time for this question (seconds):</label>
+                    <input type="number" name="time_per_question_${questionIndex}" value="30" min="10" max="300" required>
+                </div>
 
                 <div class="options-container">
                     <label>Options:</label>
@@ -506,6 +544,11 @@ body {
                             <label>Question ${index + 1}:</label>
                             <textarea name="questions[]" required class="question-input" rows="3">${question.question}</textarea>
                             <input type="hidden" name="question_index[]" value="${index}">
+                            
+                            <div class="time-setting">
+                                <label>Time for this question (seconds):</label>
+                                <input type="number" name="time_per_question_${index}" value="${question.time_per_question || 30}" min="10" max="300" required>
+                            </div>
 
                             <div class="options-container">
                                 <label>Options:</label>
@@ -536,6 +579,11 @@ body {
                         <label>Question 1:</label>
                         <textarea name="questions[]" required class="question-input" rows="3"></textarea>
                         <input type="hidden" name="question_index[]" value="0">
+                        
+                        <div class="time-setting">
+                            <label>Time for this question (seconds):</label>
+                            <input type="number" name="time_per_question_0" value="30" min="10" max="300" required>
+                        </div>
 
                         <div class="options-container">
                             <label>Options:</label>
@@ -655,6 +703,38 @@ body {
             
             quizToDelete = null;
         });
+
+        function addQuestionTemplate() {
+            const questionNumber = document.querySelectorAll('.question-block').length + 1;
+            const questionTemplate = `
+                <div class="question-block">
+                    <i class="fas fa-times-circle remove-question-btn" onclick="removeQuestion(this)"></i>
+                    <h4>Question ${questionNumber}</h4>
+                    <textarea name="question_text[]" placeholder="Enter your question here..." required></textarea>
+                    
+                    <div class="options-container">
+                        <div class="option-input">
+                            <input type="radio" name="correct_answer_${questionNumber-1}" value="0" required>
+                            <input type="text" name="option_0_${questionNumber-1}" placeholder="Option 1" required>
+                        </div>
+                        <div class="option-input">
+                            <input type="radio" name="correct_answer_${questionNumber-1}" value="1" required>
+                            <input type="text" name="option_1_${questionNumber-1}" placeholder="Option 2" required>
+                        </div>
+                        <div class="option-input">
+                            <input type="radio" name="correct_answer_${questionNumber-1}" value="2" required>
+                            <input type="text" name="option_2_${questionNumber-1}" placeholder="Option 3" required>
+                        </div>
+                        <div class="option-input">
+                            <input type="radio" name="correct_answer_${questionNumber-1}" value="3" required>
+                            <input type="text" name="option_3_${questionNumber-1}" placeholder="Option 4" required>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('questionsContainer').insertAdjacentHTML('beforeend', questionTemplate);
+        }
     </script>
 </body>
 </html>
