@@ -100,6 +100,60 @@
         "quiz_title": "fadsbf",
         "score": 0.0,
         "date": "2025-03-04T06:10:22.069716"
+      },
+      {
+        "quiz_id": "4148",
+        "quiz_title": "saD",
+        "score": 0.0,
+        "correct_count": 0,
+        "total_questions": 2,
+        "timestamp": "2025-04-09T04:00:23.967027",
+        "completed": true,
+        "needs_review": false,
+        "ai_content_detected": false,
+        "plagiarism_detected": false
+      },
+      {
+        "quiz_id": "3049",
+        "quiz_title": "tr",
+        "score": 0,
+        "correct_count": 0,
+        "total_questions": 0,
+        "timestamp": "2025-04-09T04:09:46.080626",
+        "completed": false,
+        "needs_review": false,
+        "ai_content_detected": false,
+        "plagiarism_detected": false
+      },
+      {
+        "quiz_id": "3049",
+        "quiz_title": "tr",
+        "score": 0,
+        "total_questions": 0,
+        "percentage": 0,
+        "failed_reason": "Timeout",
+        "timestamp": "2025-04-09T04:10:30.464462"
+      },
+      {
+        "quiz_id": "9094",
+        "quiz_title": "dsdvs",
+        "score": 0,
+        "correct_count": 0,
+        "total_questions": 0,
+        "timestamp": "2025-04-09T04:11:28.870272",
+        "completed": false,
+        "needs_review": false,
+        "ai_content_detected": false,
+        "plagiarism_detected": false
+      },
+      {
+        "quiz_id": "9094",
+        "quiz_title": "dsdvs",
+        "score": 0,
+        "total_questions": 0,
+        "percentage": 0,
+        "failed_reason": "Timeout",
+        "timestamp": "2025-04-09T04:11:28.877389"
       }
     ]
   }

@@ -1,36 +1,18 @@
 [
   {
-    "id": "4148",
-    "title": "saD",
-    "description": "fss",
-    "topics": "fsf",
-    "category": "Physics",
+    "id": "6477",
+    "title": "dada",
+    "description": "dadad",
+    "topics": "ada",
+    "category": "Math",
     "strand": "STEM",
-    "timestamp": "2025-03-30T20:34:15.192481",
-    "questions": [
-      {
-        "question": "fsA",
-        "options": [
-          "fsaf",
-          "fafa",
-          "faa",
-          "fa"
-        ],
-        "correct_answer": 0,
-        "time_per_question": 30
-      },
-      {
-        "question": "daFasD",
-        "options": [
-          "DSA",
-          "DSDA",
-          "DSADAS",
-          "SDA"
-        ],
-        "correct_answer": 3,
-        "time_per_question": 30
-      }
-    ],
-    "total_time": 60
+    "timestamp": "2025-04-09T04:14:17.166284",
+    "questions": [],
+    "author": {
+      "first_name": "dad",
+      "last_name": "adda"
+    },
+    "grade_level": "Grade 12",
+    "total_time": 0
   }
 ]

@@ -20,6 +20,16 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv('FLASK_SECRET_KEY')
 
+# Register custom filters
+@app.template_filter('datetime')
+def format_datetime(value, format='%B %d, %Y at %I:%M %p'):
+    if isinstance(value, str):
+        try:
+            value = datetime.fromisoformat(value)
+        except ValueError:
+            return value
+    return value.strftime(format)
+
 EMAIL_ADDRESS = os.getenv('EMAIL_ADDRESS')
 EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD')
 
@@ -352,16 +362,40 @@ def change_password():
     return redirect(url_for('dashboard'))
 
 @app.route('/nimda/delete_quiz/<quiz_id>', methods=['POST'])
-def admin_delete_quiz(quiz_id):
+def delete_quiz(quiz_id):
     if 'admin_logged_in' not in session:
-        return redirect(url_for('admin_login'))
-
+        return jsonify({"error": "Unauthorized"}), 401
+    
     quizzes = load_quizzes()
-    quizzes = [quiz for quiz in quizzes if quiz['id'] != quiz_id]
+    quizzes = [q for q in quizzes if q['id'] != quiz_id]
     save_quizzes(quizzes)
+    
+    return jsonify({"success": True})
 
-    flash('Quiz deleted successfully', 'success')
-    return redirect(url_for('admin_dashboard'))
+@app.route('/nimda/reset_quiz/<quiz_id>', methods=['POST'])
+def reset_quiz(quiz_id):
+    if 'admin_logged_in' not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    try:
+        # Load user data
+        users = load_users()
+        
+        # For each user, remove the specified quiz from their quiz history
+        for email, user_data in users.items():
+            if 'quiz_history' in user_data:
+                # Filter out the quiz with the given quiz_id
+                user_data['quiz_history'] = [
+                    quiz_result for quiz_result in user_data['quiz_history'] 
+                    if quiz_result.get('quiz_id') != quiz_id
+                ]
+        
+        # Save the updated user data
+        save_users(users)
+        
+        return jsonify({"success": True, "message": "Quiz reset successful. Students can now retake it."})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/start_quiz/<quiz_id>')
 def start_quiz(quiz_id):
@@ -375,29 +409,38 @@ def start_quiz(quiz_id):
         flash('Quiz not found or no questions available', 'error')
         return redirect(url_for('dashboard'))
     
-    # Make sure all questions have time limits set
+    # Make sure all questions have time limits set and standardized field names
     for question in quiz['questions']:
-        if 'time_limit' not in question:
-            question['time_limit'] = 30  # Default 30 seconds if not set
+        # Set default time if neither field exists
+        if 'time_per_question' not in question and 'time_limit' not in question:
+            question['time_per_question'] = 30  # Default 30 seconds if not set
+        # If only time_limit exists, copy to time_per_question for consistency
+        elif 'time_limit' in question and 'time_per_question' not in question:
+            question['time_per_question'] = question['time_limit'] 
+        # If only time_per_question exists, copy to time_limit for backward compatibility
+        elif 'time_per_question' in question and 'time_limit' not in question:
+            question['time_limit'] = question['time_per_question']
     
     # Calculate and set total quiz time if not already set
     if 'total_time' not in quiz:
-        quiz['total_time'] = sum(q['time_limit'] for q in quiz['questions'])
+        quiz['total_time'] = sum(q.get('time_per_question', 30) for q in quiz['questions'])
     
     return render_template('quiz.html', quiz=quiz)
 
 @app.route('/submit-quiz', methods=['POST'])
 def submit_quiz():
     if 'user_email' not in session:
+        flash('Please log in to take quizzes', 'error')
         return redirect(url_for('index'))
     
     quiz_id = request.form.get('quiz_id')
-    quizzes = load_quizzes()
+    timeout = request.form.get('timeout') == 'true'
     
-    # Find the quiz
+    quizzes = load_quizzes()
     quiz = None
+    
     for q in quizzes:
-        if str(q.get('id')) == quiz_id:
+        if q['id'] == quiz_id:
             quiz = q
             break
     
@@ -405,60 +448,252 @@ def submit_quiz():
         flash('Quiz not found', 'error')
         return redirect(url_for('dashboard'))
     
-    # Process answers
-    score = 0
-    total_questions = len(quiz.get('questions', []))
-    answers = {}
+    # Initialize results
+    correct_count = 0
+    total_questions = len(quiz['questions'])
+    question_results = []
     
-    for i, question in enumerate(quiz.get('questions', [])):
-        selected_answer = request.form.get(f'question_{i}')
-        correct_answer = question.get('correct_answer')
+    # Check for AI content or plagiarism if needed
+    ai_content_detected = False
+    plagiarism_detected = False
+    
+    # Process each question based on type
+    for i, question in enumerate(quiz['questions']):
+        question_type = question.get('question_type', 'multiple_choice')  # Default to multiple choice for old quizzes
+        user_answer = None
+        is_correct = False
+        feedback = ""
         
-        answers[f'question_{i}'] = {
-            'question': question.get('question'),
-            'selected_answer': selected_answer,
-            'correct_answer': correct_answer,
-            'is_correct': selected_answer == correct_answer
-        }
+        # Get user's answer based on question type
+        if question_type == 'multiple_choice':
+            user_answer = request.form.get(f'answer_{i}')
+            if user_answer is not None:
+                user_answer = int(user_answer)
+                is_correct = user_answer == question['correct_answer']
         
-        if selected_answer == correct_answer:
-            score += 1
+        elif question_type == 'true_false':
+            user_answer = request.form.get(f'answer_{i}')
+            is_correct = user_answer == question['correct_answer']
+        
+        elif question_type == 'short_answer':
+            user_answer = request.form.get(f'answer_{i}', '').strip()
+            
+            # Basic check for correctness (case insensitive)
+            is_correct = user_answer.lower() == question['correct_answer'].lower()
+            
+            # Check for AI content if enabled
+            if question.get('ai_detection') and user_answer:
+                ai_score = check_ai_content(user_answer)
+                
+                if ai_score > 0.7:  # Threshold for AI content detection
+                    ai_content_detected = True
+                    feedback = "AI-generated content detected in this answer."
+        
+        elif question_type == 'fill_blank':
+            blank_count = int(request.form.get(f'blank_count_{i}', 0))
+            blank_answers = []
+            
+            for j in range(blank_count):
+                blank_answer = request.form.get(f'blank_{i}_{j}', '').strip()
+                blank_answers.append(blank_answer)
+            
+            user_answer = blank_answers
+            
+            # Check if all blanks are correct
+            if len(blank_answers) == len(question['blanks']):
+                is_correct = True
+                for j, answer in enumerate(blank_answers):
+                    if answer.lower() != question['blanks'][j].lower():
+                        is_correct = False
+                        break
+        
+        elif question_type == 'matching':
+            matching_answers = []
+            for j in range(len(question['right_items'])):
+                match_value = request.form.get(f'matching_{i}_{j}')
+                if match_value:
+                    matching_answers.append(int(match_value))
+                else:
+                    matching_answers.append(-1)  # No match selected
+            
+            user_answer = matching_answers
+            
+            # Check if all matches are correct
+            if len(matching_answers) == len(question['correct_matches']):
+                is_correct = True
+                for j, match in enumerate(matching_answers):
+                    if match != question['correct_matches'][j]:
+                        is_correct = False
+                        break
+        
+        elif question_type == 'essay':
+            user_answer = request.form.get(f'answer_{i}', '').strip()
+            
+            # Essays are usually graded manually, mark as "needs review"
+            is_correct = None
+            feedback = "Essay will be reviewed by the instructor."
+            
+            # Check for AI content if enabled
+            if question.get('ai_detection') and user_answer:
+                ai_score = check_ai_content(user_answer)
+                
+                if ai_score > 0.7:  # Threshold for AI content detection
+                    ai_content_detected = True
+                    feedback += " AI-generated content detected."
+            
+            # Check for plagiarism if enabled
+            if question.get('anti_plagiarism') and user_answer:
+                plagiarism_score = check_plagiarism(user_answer)
+                
+                if plagiarism_score > 0.5:  # Threshold for plagiarism detection
+                    plagiarism_detected = True
+                    feedback += " Potential plagiarism detected."
+        
+        # Add to correct count if answer is correct
+        if is_correct:
+            correct_count += 1
+        
+        # Store the result for this question
+        question_results.append({
+            'question': question['question'],
+            'question_type': question_type,
+            'user_answer': user_answer,
+            'correct_answer': question.get('correct_answer'),
+            'is_correct': is_correct,
+            'feedback': feedback
+        })
     
-    # Calculate percentage
-    percentage = round((score / total_questions) * 100) if total_questions > 0 else 0
+    # Calculate score as percentage
+    score = (correct_count / total_questions) * 100 if total_questions > 0 else 0
     
-    # Record quiz result
+    # If AI content or plagiarism was detected, mark the quiz for review
+    needs_review = ai_content_detected or plagiarism_detected
+    
+    # Get user information
     users = load_users()
     user_email = session['user_email']
+    user = users.get(user_email)
     
-    if user_email in users:
-        if 'quiz_history' not in users[user_email]:
-            users[user_email]['quiz_history'] = []
-        
-        users[user_email]['quiz_history'].append({
+    if user:
+        # Add quiz result to user's quiz history
+        quiz_result = {
             'quiz_id': quiz_id,
-            'quiz_title': quiz.get('title'),
+            'quiz_title': quiz['title'],
             'score': score,
+            'correct_count': correct_count,
             'total_questions': total_questions,
-            'percentage': percentage,
-            'timestamp': datetime.now().isoformat()
-        })
+            'timestamp': datetime.now().isoformat(),
+            'completed': not timeout,
+            'needs_review': needs_review,
+            'ai_content_detected': ai_content_detected,
+            'plagiarism_detected': plagiarism_detected
+        }
         
+        if 'quiz_history' not in user:
+            user['quiz_history'] = []
+        
+        user['quiz_history'].append(quiz_result)
         save_users(users)
     
-    return render_template('quiz_results.html', 
-                          quiz=quiz,
-                          score=score,
-                          total_questions=total_questions,
-                          percentage=percentage,
-                          answers=answers)
+    # If quiz timed out or AI/plagiarism detected, handle differently
+    if timeout:
+        return redirect(url_for('fail_quiz', quiz_id=quiz_id, reason='timeout'))
+    
+    if needs_review:
+        flash('Your quiz has been submitted for review due to potential academic integrity concerns.', 'warning')
+    
+    # Pass results to the results page
+    session['last_quiz_results'] = {
+        'quiz_id': quiz_id,
+        'quiz_title': quiz['title'],
+        'score': score,
+        'correct_count': correct_count,
+        'total_questions': total_questions,
+        'question_results': question_results,
+        'timestamp': datetime.now().isoformat(),
+        'ai_content_detected': ai_content_detected,
+        'plagiarism_detected': plagiarism_detected
+    }
+    
+    return redirect(url_for('quiz_results'))
 
-@app.route('/fail-quiz', methods=['POST'])
+@app.route('/quiz-results')
+def quiz_results():
+    if 'user_email' not in session:
+        flash('Please log in to view quiz results', 'error')
+        return redirect(url_for('index'))
+    
+    if 'last_quiz_results' not in session:
+        flash('No quiz results found', 'error')
+        return redirect(url_for('dashboard'))
+    
+    results = session['last_quiz_results']
+    return render_template('quiz_results.html', results=results)
+
+def check_ai_content(text):
+    """
+    Check if text appears to be AI-generated.
+    Returns a score between 0 and 1 where higher values indicate
+    more likely AI-generated content.
+    """
+    # Simple implementation using DeepSeek API
+    try:
+        url = "https://api.deepseek.com/v1/detection"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {DEEPSEEK_API_KEY}"
+        }
+        
+        payload = {
+            "model": "deepseek-ai-detector",
+            "text": text,
+        }
+        
+        response = requests.post(url, headers=headers, json=payload)
+        result = response.json()
+        
+        # Extract the AI probability score
+        ai_score = result.get('result', {}).get('ai_probability', 0)
+        
+        return ai_score
+    except Exception as e:
+        print(f"Error checking AI content: {e}")
+        return 0  # Default to no AI content on error
+
+def check_plagiarism(text):
+    """
+    Check if text appears to be plagiarized.
+    Returns a score between 0 and 1 where higher values indicate
+    more likely plagiarism.
+    
+    Note: This is a simplified implementation. A real implementation
+    would use a plagiarism detection service.
+    """
+    # Simplified implementation - in a real app, use a service like Turnitin
+    # For now, just return a random score for demo purposes
+    try:
+        # Simulate a plagiarism check with random value
+        # In a real implementation, integrate with a plagiarism detection service
+        plagiarism_score = random.uniform(0, 0.3)  # For demo, low random scores
+        
+        return plagiarism_score
+    except Exception as e:
+        print(f"Error checking plagiarism: {e}")
+        return 0  # Default to no plagiarism on error
+
+@app.route('/fail-quiz', methods=['GET', 'POST'])
 def fail_quiz():
     if 'user_email' not in session:
         return redirect(url_for('index'))
     
-    quiz_id = request.form.get('quiz_id')
+    # Get quiz_id and reason from either URL parameters (GET) or form data (POST)
+    if request.method == 'POST':
+        quiz_id = request.form.get('quiz_id')
+        reason = request.form.get('reason', 'unknown')
+    else:  # GET request
+        quiz_id = request.args.get('quiz_id')
+        reason = request.args.get('reason', 'unknown')
+    
     quizzes = load_quizzes()
     
     # Find the quiz
@@ -472,7 +707,7 @@ def fail_quiz():
         flash('Quiz not found', 'error')
         return redirect(url_for('dashboard'))
     
-    # Record failed quiz result due to eye tracking violation
+    # Record failed quiz result due to reason (timeout or eye tracking violation)
     users = load_users()
     user_email = session['user_email']
     
@@ -486,13 +721,17 @@ def fail_quiz():
             'score': 0,
             'total_questions': len(quiz.get('questions', [])),
             'percentage': 0,
-            'failed_reason': 'Eye tracking violation detected',
+            'failed_reason': 'Timeout' if reason == 'timeout' else 'Eye tracking violation detected',
             'timestamp': datetime.now().isoformat()
         })
         
         save_users(users)
     
-    flash('Quiz failed: Eye tracking violation detected. Your eyes were off screen for too long.', 'error')
+    if reason == 'timeout':
+        flash('Quiz failed: Time limit exceeded.', 'error')
+    else:
+        flash('Quiz failed: Eye tracking violation detected. Your eyes were off screen for too long.', 'error')
+    
     return redirect(url_for('dashboard'))
 
 @app.route('/api/check-eyes', methods=['POST'])
@@ -570,48 +809,53 @@ def admin_dashboard():
 
 @app.route('/nimda/post_quiz', methods=['POST'])
 def admin_post_quiz():
-    if 'admin' not in session:
-        return redirect(url_for('admin_login'))
-    
+    if 'admin_logged_in' not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+
     title = request.form.get('quiz_title')
     description = request.form.get('quiz_description')
+    topics = request.form.get('quiz_topics')
     category = request.form.get('quiz_category')
     strand = request.form.get('strand')
-    topics = request.form.get('quiz_topics')
-    time_per_question = request.form.get('time_per_question', 30)
+    author_first_name = request.form.get('author_first_name', '')
+    author_last_name = request.form.get('author_last_name', '')
+    grade_level = request.form.get('grade_level', '')
     
-    try:
-        time_per_question = int(time_per_question)
-        if time_per_question < 10:
-            time_per_question = 10
-        elif time_per_question > 300:
-            time_per_question = 300
-    except:
-        time_per_question = 30
-    
-    if not all([title, description, category, strand, topics]):
-        flash('Please fill in all fields', 'error')
+    if not all([title, description, topics, category, strand]):
+        flash('Please fill in all required fields', 'error')
         return redirect(url_for('admin_dashboard'))
     
-    # Generate a unique ID for the quiz
-    quiz_id = str(random.randint(10000, 99999))
+    # Generate a unique ID
+    quiz_id = ''.join(random.choices(string.digits, k=4))
     
+    # Create quiz object
     quiz = {
         'id': quiz_id,
         'title': title,
         'description': description,
+        'topics': topics,
         'category': category,
         'strand': strand,
-        'topics': topics,
-        'time_per_question': time_per_question,
-        'created_at': datetime.now().isoformat()
+        'timestamp': datetime.now().isoformat(),
+        'questions': []
     }
     
+    # Add author info if provided
+    if author_first_name or author_last_name:
+        quiz['author'] = {
+            'first_name': author_first_name,
+            'last_name': author_last_name
+        }
+    
+    # Add grade level if provided
+    if grade_level:
+        quiz['grade_level'] = grade_level
+    
+    # Save the quiz
     quizzes = load_quizzes()
     quizzes.append(quiz)
     save_quizzes(quizzes)
     
-    flash('Quiz created successfully', 'success')
     return redirect(url_for('admin_dashboard'))
 
 @app.route('/nimda/get_quiz_questions/<quiz_id>')
@@ -633,80 +877,107 @@ def get_quiz_questions(quiz_id):
 @app.route('/nimda/save_quiz_questions', methods=['POST'])
 def admin_save_quiz_questions():
     if 'admin_logged_in' not in session:
-        return redirect(url_for('admin_login'))
-    
+        return jsonify({"error": "Unauthorized"}), 401
+
     quiz_id = request.form.get('quiz_id')
-    question_texts = request.form.getlist('questions[]')
+    questions_text = request.form.getlist('questions[]')
+    question_indices = request.form.getlist('question_index[]')
+    question_types = request.form.getlist('question_types[]')  # New field for question types
     
-    # Find the quiz
+    time_per_question = []
+    total_time = 0
+    
     quizzes = load_quizzes()
     quiz = None
+    
     for q in quizzes:
         if q['id'] == quiz_id:
             quiz = q
             break
     
     if not quiz:
-        return jsonify({'error': 'Quiz not found'}), 404
+        return jsonify({"error": "Quiz not found"}), 404
     
-    # Process questions
-    questions = []
-    for i in range(len(question_texts)):
-        # Get correct answer
-        correct_answer = request.form.get(f'correct_answer_{i}')
-        if not correct_answer:
-            return jsonify({'error': f'Missing correct answer for question {i+1}'}), 400
+    # Initialize questions array
+    quiz['questions'] = []
+    
+    # Process each question based on its type
+    for idx, q_idx in enumerate(question_indices):
+        q_idx = int(q_idx)
+        question_text = questions_text[idx]
+        question_type = question_types[idx]
+        time_limit = int(request.form.get(f'time_limit_{q_idx}', 30))
         
-        # Get time limit for this question
-        time_limit = request.form.get(f'time_limit_{i}', '30')
-        try:
-            time_limit = int(time_limit)
-            if time_limit < 10:
-                time_limit = 10
-            elif time_limit > 300:
-                time_limit = 300
-        except:
-            time_limit = 30
-        
-        # Get options
-        options = []
-        option_values = request.form.getlist(f'options_{i}[]')
-        if not option_values:
-            # Try alternative format that might be used
-            for j in range(4):  # Assuming 4 options per question
-                option_key = f'option_{j}_{i}'
-                option = request.form.get(option_key)
-                if option:
-                    options.append(option)
-        else:
-            options = option_values
-        
-        if len(options) < 2:
-            return jsonify({'error': f'Not enough options for question {i+1}'}), 400
-        
-        # Create question object
-        question = {
-            'question': question_texts[i],
-            'options': options,
-            'correct_answer': int(correct_answer),
-            'time_limit': time_limit
+        # Common question attributes
+        question_data = {
+            "question": question_text,
+            "question_type": question_type,
+            "time_per_question": time_limit
         }
         
-        questions.append(question)
+        # Add type-specific data
+        if question_type == "multiple_choice":
+            options = request.form.getlist(f'options_{q_idx}[]')
+            correct_answer = int(request.form.get(f'correct_answer_{q_idx}', 0))
+            question_data["options"] = options
+            question_data["correct_answer"] = correct_answer
+            
+        elif question_type == "true_false":
+            correct_answer = request.form.get(f'tf_correct_answer_{q_idx}')
+            question_data["correct_answer"] = correct_answer
+            
+        elif question_type == "short_answer":
+            correct_answer = request.form.get(f'short_answer_{q_idx}')
+            question_data["correct_answer"] = correct_answer
+            question_data["ai_detection"] = request.form.get(f'ai_detection_{q_idx}') == 'on'
+            
+        elif question_type == "fill_blank":
+            blanks = request.form.getlist(f'fill_blank_answers_{q_idx}[]')
+            question_data["blanks"] = blanks
+            
+        elif question_type == "matching":
+            left_items = request.form.getlist(f'matching_left_{q_idx}[]')
+            right_items = request.form.getlist(f'matching_right_{q_idx}[]')
+            correct_matches = request.form.getlist(f'matching_pairs_{q_idx}[]')
+            
+            # Convert to integers for the matching pairs
+            correct_matches = [int(m) for m in correct_matches]
+            
+            question_data["left_items"] = left_items
+            question_data["right_items"] = right_items
+            question_data["correct_matches"] = correct_matches
+            
+        elif question_type == "essay":
+            question_data["ai_detection"] = request.form.get(f'essay_ai_detection_{q_idx}') == 'on'
+            question_data["anti_plagiarism"] = request.form.get(f'essay_plagiarism_{q_idx}') == 'on'
+            question_data["word_limit"] = int(request.form.get(f'essay_word_limit_{q_idx}', 500))
+        
+        # Add to questions list and track time
+        quiz['questions'].append(question_data)
+        time_per_question.append(time_limit)
+        total_time += time_limit
     
-    # Update quiz with questions
-    quiz['questions'] = questions
+    # Update total time for the quiz
+    quiz['total_time'] = total_time
     
-    # Remove the overall time_per_question field if it exists
-    if 'time_per_question' in quiz:
-        del quiz['time_per_question']
+    # Add author information if provided
+    author_first_name = request.form.get('author_first_name', '')
+    author_last_name = request.form.get('author_last_name', '')
+    if author_first_name or author_last_name:
+        quiz['author'] = {
+            'first_name': author_first_name,
+            'last_name': author_last_name
+        }
     
-    # Calculate total quiz time - sum of all question time limits
-    quiz['total_time'] = sum(q['time_limit'] for q in questions)
+    # Add grade level if provided
+    grade_level = request.form.get('grade_level', '')
+    if grade_level:
+        quiz['grade_level'] = grade_level
     
+    # Save updated quizzes
     save_quizzes(quizzes)
     
-    return jsonify({'success': True}), 200
+    return jsonify({"success": True})
 
 @app.route('/get_categories/<strand>')
 def get_categories(strand):
@@ -849,6 +1120,5 @@ def get_ai_response():
 init_files()
 
 if __name__ == '__main__':
-    port = int(os.environ
-    .get('PORT', 5000))
+    port = int(os.environ.get('PORT', 5001))
     app.run(host='0.0.0.0', port=port, debug=True)

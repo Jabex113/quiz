@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quiz Results - {{ quiz.title }}</title>
+    <title>Quiz Results</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         * {
@@ -15,216 +15,420 @@
 
         body {
             background: #f3f4f6;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
             padding: 20px;
         }
 
         .results-container {
+            max-width: 800px;
+            margin: 0 auto;
             background: white;
             border-radius: 15px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            max-width: 600px;
-            width: 100%;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
             padding: 30px;
+            margin-top: 40px;
+            border-top: 5px solid #6366f1;
+        }
+
+        .results-header {
             text-align: center;
+            margin-bottom: 30px;
         }
 
-        .result-icon {
-            font-size: 4rem;
-            margin-bottom: 20px;
-        }
-
-        .result-passed {
-            color: #10b981; /* Green for pass */
-        }
-
-        .result-failed {
-            color: #ef4444; /* Red for fail */
-        }
-
-        .score-details {
-            margin: 20px 0;
-        }
-
-        .score-percentage {
-            font-size: 2.5rem;
-            font-weight: bold;
-            color: #6366f1;
-            margin-bottom: 10px;
-        }
-
-        .grade-text {
-            font-size: 1.2rem;
-            margin-bottom: 20px;
-            color: #4b5563;
-        }
-
-        .quiz-details {
-            background: #f3f4f6;
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-        }
-
-        .quiz-details h3 {
+        .results-header h1 {
             color: #1f2937;
+            font-size: 1.8rem;
             margin-bottom: 10px;
         }
 
-        .quiz-details p {
-            color: #6b7280;
-            margin: 5px 0;
+        .results-header p {
+            color: #4b5563;
+            font-size: 1.1rem;
         }
 
-        .action-buttons {
+        .score-display {
             display: flex;
             justify-content: center;
-            gap: 15px;
+            align-items: center;
+            margin: 30px 0;
         }
 
-        .btn {
-            display: inline-block;
-            padding: 12px 24px;
-            border-radius: 8px;
-            text-decoration: none;
-            transition: all 0.3s ease;
-            font-size: 1rem;
-        }
-
-        .btn-primary {
-            background: #6366f1;
+        .score-circle {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2.5rem;
+            font-weight: bold;
             color: white;
+            position: relative;
+            background: conic-gradient(
+                {{ 'green' if results.score >= 70 else 'orange' if results.score >= 50 else 'red' }} 
+                {{ results.score * 3.6 }}deg, 
+                #e5e7eb {{ results.score * 3.6 }}deg 360deg
+            );
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
         }
 
-        .btn-primary:hover {
-            background: #4f46e5;
+        .score-inner {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1;
         }
 
-        .btn-secondary {
-            background: #f3f4f6;
-            color: #1f2937;
-            border: 1px solid #e5e7eb;
+        .score-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: {{ 'green' if results.score >= 70 else 'orange' if results.score >= 50 else 'red' }};
         }
 
-        .btn-secondary:hover {
-            background: #e5e7eb;
-        }
-
-        .question-review {
+        .score-summary {
+            text-align: center;
             margin-top: 20px;
-            text-align: left;
+            color: #4b5563;
+            font-size: 1.1rem;
         }
 
-        .question-review h4 {
+        .score-summary .correct-count {
+            color: green;
+            font-weight: 600;
+        }
+
+        .score-summary .total-count {
+            color: #4b5563;
+            font-weight: 600;
+        }
+
+        .score-summary .score-text {
+            margin-top: 10px;
+            font-weight: 600;
+            font-size: 1.2rem;
+            color: {{ 'green' if results.score >= 70 else 'orange' if results.score >= 50 else 'red' }};
+        }
+
+        .questions-review {
+            margin-top: 40px;
+        }
+
+        .questions-review h2 {
+            color: #1f2937;
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .question-item {
+            background: #f9fafb;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 5px solid;
+        }
+
+        .question-item.correct {
+            border-left-color: #10b981;
+        }
+
+        .question-item.incorrect {
+            border-left-color: #ef4444;
+        }
+
+        .question-item.needs-review {
+            border-left-color: #f59e0b;
+        }
+
+        .question-text {
+            font-size: 1.1rem;
+            font-weight: 600;
             color: #1f2937;
             margin-bottom: 15px;
         }
 
-        .review-item {
-            background: #f8fafc;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 10px;
-        }
-
-        .review-item.correct {
-            border-left: 4px solid #10b981;
-        }
-
-        .review-item.incorrect {
-            border-left: 4px solid #ef4444;
-        }
-
-        .review-item-header {
+        .question-result {
             display: flex;
-            justify-content: space-between;
             align-items: center;
             margin-bottom: 10px;
+            font-size: 0.95rem;
         }
 
-        .review-status {
-            font-weight: bold;
+        .question-result i {
+            margin-right: 10px;
         }
 
-        .correct .review-status {
+        .question-result.correct i {
             color: #10b981;
         }
 
-        .incorrect .review-status {
+        .question-result.incorrect i {
             color: #ef4444;
+        }
+
+        .question-result.needs-review i {
+            color: #f59e0b;
+        }
+
+        .answer-section {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px dashed #e5e7eb;
+        }
+
+        .answer-section h4 {
+            color: #4b5563;
+            font-size: 0.95rem;
+            margin-bottom: 8px;
+        }
+
+        .answer-content {
+            background: white;
+            border: 1px solid #e5e7eb;
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            color: #1f2937;
+            word-break: break-word;
+        }
+
+        .answer-content.correct {
+            border-left: 3px solid #10b981;
+        }
+
+        .answer-content.incorrect {
+            border-left: 3px solid #ef4444;
+        }
+
+        .actions {
+            text-align: center;
+            margin-top: 30px;
+        }
+
+        .action-btn {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 500;
+            font-size: 1rem;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .action-btn:hover {
+            background: #4f46e5;
+            transform: translateY(-1px);
+        }
+
+        .warning-banner {
+            background: #fee2e2;
+            border: 1px solid #ef4444;
+            color: #b91c1c;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+        }
+
+        .warning-banner i {
+            font-size: 1.5rem;
+            margin-right: 15px;
+        }
+
+        .matching-item, .blank-item {
+            margin-bottom: 8px;
+        }
+
+        .essay-answer {
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+            padding-right: 10px;
         }
     </style>
 </head>
 <body>
     <div class="results-container">
         <div class="results-header">
-            <h2>{{ quiz.title }} - Results</h2>
-            <div class="quiz-score">
-                <div class="score-circle">
-                    <div class="score-value">{{ percentage }}%</div>
-                </div>
-                <div class="score-details">
-                    <div>{{ score }} out of {{ total_questions }} correct</div>
-                    {% if percentage >= 75 %}
-                        <div class="score-message success">Excellent work!</div>
-                    {% elif percentage >= 50 %}
-                        <div class="score-message average">Good effort!</div>
-                    {% else %}
-                        <div class="score-message poor">Needs improvement</div>
-                    {% endif %}
+            <h1>{{ results.quiz_title }}</h1>
+            <p>{% if results.timestamp %}{{ results.timestamp|datetime }}{% else %}Quiz completed just now{% endif %}</p>
+        </div>
+
+        {% if results.ai_content_detected or results.plagiarism_detected %}
+        <div class="warning-banner">
+            <i class="fas fa-exclamation-triangle"></i>
+            <div>
+                <p><strong>Warning:</strong> Academic integrity concerns detected in this quiz.</p>
+                {% if results.ai_content_detected %}
+                <p>AI-generated content was detected in one or more answers.</p>
+                {% endif %}
+                {% if results.plagiarism_detected %}
+                <p>Potential plagiarism was detected in one or more answers.</p>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="score-display">
+            <div class="score-circle">
+                <div class="score-inner">
+                    <span class="score-value">{{ results.score|round(0, 'floor')|int }}%</span>
                 </div>
             </div>
         </div>
 
-        <div class="results-summary">
-            {% if 'failed_reason' in quiz %}
-                <div class="failed-quiz">
-                    <div class="failed-icon"><i class="fas fa-exclamation-triangle"></i></div>
-                    <div class="failed-message">Quiz Failed: {{ quiz.failed_reason }}</div>
+        <div class="score-summary">
+            <p>You got <span class="correct-count">{{ results.correct_count }}</span> out of <span class="total-count">{{ results.total_questions }}</span> questions correct.</p>
+            <p class="score-text">
+                {% if results.score >= 90 %}
+                Excellent!
+                {% elif results.score >= 70 %}
+                Good job!
+                {% elif results.score >= 50 %}
+                Keep practicing!
+                {% else %}
+                Try again!
+                {% endif %}
+            </p>
+        </div>
+
+        <div class="questions-review">
+            <h2>Review Questions</h2>
+
+            {% for question in results.question_results %}
+            <div class="question-item 
+                {% if question.is_correct == true %}
+                correct
+                {% elif question.is_correct == false %}
+                incorrect
+                {% else %}
+                needs-review
+                {% endif %}">
+                <div class="question-text">{{ loop.index }}. {{ question.question }}</div>
+                
+                <div class="question-result 
+                    {% if question.is_correct == true %}
+                    correct
+                    {% elif question.is_correct == false %}
+                    incorrect
+                    {% else %}
+                    needs-review
+                    {% endif %}">
+                    {% if question.is_correct == true %}
+                    <i class="fas fa-check-circle"></i> <span>Correct</span>
+                    {% elif question.is_correct == false %}
+                    <i class="fas fa-times-circle"></i> <span>Incorrect</span>
+                    {% else %}
+                    <i class="fas fa-exclamation-circle"></i> <span>Needs Review</span>
+                    {% endif %}
                 </div>
-            {% endif %}
-            <h3>Quiz Review</h3>
-            
-            {% for i in range(quiz.questions|length) %}
-                {% set question = quiz.questions[i] %}
-                {% set answer_data = answers["question_" ~ i] %}
-                <div class="review-question {% if answer_data.is_correct %}correct{% else %}incorrect{% endif %}">
-                    <div class="question-status">
-                        {% if answer_data.is_correct %}
-                            <i class="fas fa-check-circle"></i>
+
+                {% if question.feedback %}
+                <div class="question-feedback">
+                    <i class="fas fa-info-circle"></i> {{ question.feedback }}
+                </div>
+                {% endif %}
+
+                <div class="answer-section">
+                    <h4>Your Answer:</h4>
+                    <div class="answer-content 
+                        {% if question.is_correct == true %}
+                        correct
+                        {% elif question.is_correct == false %}
+                        incorrect
+                        {% endif %}">
+                        {% if question.question_type == 'multiple_choice' %}
+                            {% if question.user_answer is not none %}
+                                {{ question.user_answer + 1 }}. {{ question.options[question.user_answer] }}
+                            {% else %}
+                                No answer provided
+                            {% endif %}
+                        
+                        {% elif question.question_type == 'true_false' %}
+                            {{ question.user_answer or 'No answer provided' }}
+                        
+                        {% elif question.question_type == 'short_answer' %}
+                            {{ question.user_answer or 'No answer provided' }}
+                        
+                        {% elif question.question_type == 'fill_blank' %}
+                            {% if question.user_answer %}
+                                {% for answer in question.user_answer %}
+                                <div class="blank-item">Blank {{ loop.index }}: {{ answer }}</div>
+                                {% endfor %}
+                            {% else %}
+                                No answer provided
+                            {% endif %}
+                        
+                        {% elif question.question_type == 'matching' %}
+                            {% if question.user_answer %}
+                                {% for answer in question.user_answer %}
+                                <div class="matching-item">
+                                    {{ question.right_items[loop.index0] }} → 
+                                    {% if answer >= 0 %}
+                                        {{ question.left_items[answer] }}
+                                    {% else %}
+                                        No match selected
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                No answer provided
+                            {% endif %}
+                        
+                        {% elif question.question_type == 'essay' %}
+                            <div class="essay-answer">{{ question.user_answer or 'No answer provided' }}</div>
+                        
                         {% else %}
-                            <i class="fas fa-times-circle"></i>
+                            {{ question.user_answer or 'No answer provided' }}
                         {% endif %}
                     </div>
-                    <div class="question-content">
-                        <div class="question-text">{{ question.question }}</div>
-                        <div class="answer-details">
-                            {% if answer_data.is_correct %}
-                                <div class="correct-answer">
-                                    Your answer: {{ question.options[answer_data.selected_answer|int] }}
-                                </div>
-                            {% else %}
-                                <div class="wrong-answer">
-                                    Your answer: {% if answer_data.selected_answer %}{{ question.options[answer_data.selected_answer|int] }}{% else %}No answer selected{% endif %}
-                                </div>
-                                <div class="correct-answer">
-                                    Correct answer: {{ question.options[answer_data.correct_answer|int] }}
-                                </div>
-                            {% endif %}
-                        </div>
+
+                    {% if question.is_correct == false and question.correct_answer is defined %}
+                    <h4 class="mt-3">Correct Answer:</h4>
+                    <div class="answer-content correct">
+                        {% if question.question_type == 'multiple_choice' %}
+                            {{ question.correct_answer + 1 }}. {{ question.options[question.correct_answer] }}
+                        
+                        {% elif question.question_type == 'true_false' %}
+                            {{ question.correct_answer }}
+                        
+                        {% elif question.question_type == 'short_answer' %}
+                            {{ question.correct_answer }}
+                        
+                        {% elif question.question_type == 'fill_blank' %}
+                            {% for answer in question.blanks %}
+                            <div class="blank-item">Blank {{ loop.index }}: {{ answer }}</div>
+                            {% endfor %}
+                        
+                        {% elif question.question_type == 'matching' %}
+                            {% for i in range(question.right_items|length) %}
+                            <div class="matching-item">
+                                {{ question.right_items[i] }} → 
+                                {{ question.left_items[question.correct_matches[i]] }}
+                            </div>
+                            {% endfor %}
+                        
+                        {% else %}
+                            {{ question.correct_answer }}
+                        {% endif %}
                     </div>
+                    {% endif %}
                 </div>
+            </div>
             {% endfor %}
         </div>
 
-        <div class="action-buttons">
-            <a href="{{ url_for('dashboard') }}" class="btn btn-primary">
-                Back to Dashboard
-            </a>
-           
+        <div class="actions">
+            <a href="/dashboard" class="action-btn">Return to Dashboard</a>
         </div>
     </div>
 </body>

@@ -1,6 +1,100 @@
-# Campus Quiz
+# Enhanced Quiz Platform
 
-A Flask-based quiz application for students.
+A powerful assessment builder for teachers with comprehensive features for creating and administering quizzes and exams.
+
+## Features
+
+### Assessment Builder
+- Create assessments with title/objective and description
+- Author attribution with first name and last name (e.g., Henri Leon)
+- Grade level selection (Grades 11-12)
+- Organize by category/strand
+
+### Question Types
+1. **Multiple Choice**
+   - Create questions with 4 options
+   - Mark correct answer
+
+2. **True or False**
+   - Simple true/false questions
+
+3. **Short Answer**
+   - Define expected answers
+   - AI detection & anti-plagiarism features
+
+4. **Fill in the Blank**
+   - Create questions with blank spaces
+   - Define correct answers for each blank
+
+5. **Matching**
+   - Create matching items for left and right columns
+   - Define correct matches
+
+6. **Essay**
+   - Long-form answers
+   - AI detection features
+   - Anti-plagiarism features
+   - Word limit setting
+
+### Time Management
+- Set time limits for each question
+- Automatic progression when time expires
+- Total quiz time limit with countdown
+- Visual progress bar for time remaining
+
+### Academic Integrity
+- Webcam monitoring during exams
+- AI-generated content detection
+- Plagiarism detection
+- Detailed reporting of potential issues
+
+### Results and Analysis
+- Immediate scoring and feedback
+- Detailed question-by-question review
+- Visual score representation
+- Pass/fail determination
+
+## Getting Started
+
+### Installation
+1. Clone the repository
+2. Install dependencies:
+   ```
+   pip install -r requirements.txt
+   ```
+3. Set up environment variables:
+   ```
+   cp .env.example .env
+   ```
+   Edit `.env` with your email and API settings
+
+### Running the Application
+```
+python app.py
+```
+
+### Admin Access
+1. Navigate to `/nimda/login`
+2. Login with admin credentials
+3. Create quizzes and questions
+
+## Technical Details
+
+### Technologies Used
+- Flask (Python web framework)
+- JavaScript for interactive features
+- HTML/CSS for frontend
+- AI integration for content detection
+
+### Files and Structure
+- `app.py`: Main application logic
+- `templates/`: HTML templates
+- `static/`: CSS, JS, and assets
+- `quizzes.txt`: Quiz storage
+- `users.txt`: User accounts
+
+## License
+This project is licensed under the MIT License
 
 ## Deployment Instructions
 

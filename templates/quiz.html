@@ -271,472 +271,750 @@
             background: #4338ca;
             transform: translateY(-2px);
         }
+
+        /* New question type styles */
+        .quiz-info {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+        
+        .quiz-info p {
+            margin-bottom: 5px;
+        }
+        
+        .question-timer {
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            color: #6b7280;
+        }
+        
+        .progress-bar {
+            height: 6px;
+            background-color: #e5e7eb;
+            border-radius: 3px;
+            margin-top: 5px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background-color: #6366f1;
+            width: 100%;
+            transition: width 1s linear;
+        }
+        
+        .progress-fill.warning {
+            background-color: #f59e0b;
+        }
+        
+        .progress-fill.danger {
+            background-color: #ef4444;
+        }
+        
+        /* True/false styles */
+        .tf-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        /* Short answer styles */
+        .short-answer textarea {
+            width: 100%;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 12px 15px;
+            resize: vertical;
+            min-height: 100px;
+            font-size: 15px;
+        }
+        
+        .ai-detection-notice {
+            margin-top: 10px;
+            color: #6b7280;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        /* Fill in the blank styles */
+        .fill-blank-question {
+            font-size: 1.1rem;
+            line-height: 1.7;
+            color: #1f2937;
+        }
+        
+        .blank-input {
+            display: inline-block;
+            width: 120px;
+            padding: 6px 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
+            margin: 0 5px;
+            font-family: inherit;
+            font-size: 0.95rem;
+            text-align: center;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+        
+        /* Matching styles */
+        .matching-container {
+            display: flex;
+            gap: 30px;
+            margin-top: 20px;
+        }
+        
+        .matching-left, .matching-right {
+            flex: 1;
+        }
+        
+        .matching-item {
+            padding: 12px 15px;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+        
+        .item-number {
+            font-weight: 600;
+            color: #6366f1;
+            min-width: 20px;
+        }
+        
+        .item-text {
+            flex: 1;
+        }
+        
+        .matching-select-container {
+            width: 150px;
+        }
+        
+        .matching-select-container select {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            background: white;
+        }
+        
+        /* Essay styles */
+        .essay textarea {
+            width: 100%;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 15px;
+            resize: vertical;
+            min-height: 200px;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+        
+        .essay-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #eee;
+        }
+        
+        .word-count {
+            font-size: 0.85rem;
+            color: #6b7280;
+        }
+        
+        .word-count.exceeded {
+            color: #ef4444;
+        }
+        
+        .detection-notice {
+            font-size: 0.85rem;
+            color: #6b7280;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
     </style>
 </head>
 <body>
     <div class="quiz-container">
         <div class="quiz-header">
             <h2 class="quiz-title">{{ quiz.title }}</h2>
-            <div class="quiz-timer">
-                <i class="fas fa-clock"></i>
-                <span id="timer">00:00</span>
+            <div class="quiz-timer" id="quiz-timer">
+                <i class="fas fa-clock"></i> <span id="timer">00:00</span>
             </div>
         </div>
-
-        <!-- Camera permission button -->
-        <div id="cameraPermission" class="camera-permission-container">
-            <p>This quiz requires camera access for eye tracking to prevent cheating.</p>
-            <button id="cameraPermissionBtn" class="quiz-nav-btn">
-                <i class="fas fa-camera"></i> Allow Camera Access to Start Quiz
-            </button>
+        
+        <div class="quiz-info">
+            <p>
+                <strong>Author:</strong> 
+                {% if quiz.author %}
+                    {{ quiz.author.first_name }} {{ quiz.author.last_name }}
+                {% else %}
+                    Anonymous
+                {% endif %}
+            </p>
+            <p><strong>Grade Level:</strong> {{ quiz.grade_level or "N/A" }}</p>
+            <p><strong>Category:</strong> {{ quiz.category }}</p>
         </div>
 
-        <form id="quizForm" action="{{ url_for('submit_quiz') }}" method="post" style="display: none;">
+        <form id="quiz-form" action="/submit-quiz" method="post">
             <input type="hidden" name="quiz_id" value="{{ quiz.id }}">
+            <input type="hidden" name="current_question" id="current_question" value="0">
             
             {% for question in quiz.questions %}
-                {% set question_index = loop.index0 %}
-                <div class="quiz-question" id="question-{{ question_index }}" {% if not loop.first %}style="display: none;"{% endif %}>
-                    <h3>{{ question.question }}</h3>
-                    <div class="quiz-options">
-                        {% for option in question.options %}
-                            <label class="quiz-option">
-                                <input type="radio"
-                                       name="question_{{ question_index }}"
-                                       value="{{ loop.index0 }}"
-                                       required>
-                                {{ option }}
-                            </label>
-                        {% endfor %}
+            <div class="quiz-question-container" id="question-{{ loop.index0 }}" style="display: {% if loop.index0 == 0 %}block{% else %}none{% endif %};">
+                <div class="question-timer">
+                    <p>Time remaining: <span class="time-left" id="time-left-{{ loop.index0 }}">{{ question.time_per_question }}</span> seconds</p>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill-{{ loop.index0 }}"></div>
                     </div>
                 </div>
-            {% endfor %}
-
-            <div class="quiz-progress">
-                {% for _ in quiz.questions %}
-                    <div class="progress-dot {% if loop.first %}active{% endif %}"></div>
-                {% endfor %}
+                
+                <div class="quiz-question">
+                    <h3>{{ question.question }}</h3>
+                </div>
+                
+                <div class="quiz-content">
+                    <!-- Multiple Choice Question -->
+                    {% if question.question_type == 'multiple_choice' %}
+                    <div class="quiz-options">
+                        {% for option in question.options %}
+                        <div class="quiz-option">
+                            <input type="radio" id="q{{ loop.parent.index0 }}_option{{ loop.index0 }}" 
+                                   name="answer_{{ loop.parent.index0 }}" value="{{ loop.index0 }}">
+                            <label for="q{{ loop.parent.index0 }}_option{{ loop.index0 }}">{{ option }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <!-- True or False Question -->
+                    {% elif question.question_type == 'true_false' %}
+                    <div class="quiz-options tf-options">
+                        <div class="quiz-option">
+                            <input type="radio" id="q{{ loop.index0 }}_true" 
+                                   name="answer_{{ loop.index0 }}" value="true">
+                            <label for="q{{ loop.index0 }}_true">True</label>
+                        </div>
+                        <div class="quiz-option">
+                            <input type="radio" id="q{{ loop.index0 }}_false" 
+                                   name="answer_{{ loop.index0 }}" value="false">
+                            <label for="q{{ loop.index0 }}_false">False</label>
+                        </div>
+                    </div>
+                    
+                    <!-- Short Answer Question -->
+                    {% elif question.question_type == 'short_answer' %}
+                    <div class="short-answer">
+                        <textarea name="answer_{{ loop.index0 }}" rows="3" 
+                                  placeholder="Type your answer here..."
+                                  {% if question.ai_detection %}
+                                  data-ai-detection="true"
+                                  {% endif %}
+                                  required></textarea>
+                        {% if question.ai_detection %}
+                        <div class="ai-detection-notice">
+                            <i class="fas fa-shield-alt"></i> 
+                            This answer will be checked for AI-generated content and plagiarism
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Fill in the Blank Question -->
+                    {% elif question.question_type == 'fill_blank' %}
+                    <div class="fill-blank">
+                        {% set question_parts = question.question.split('_') %}
+                        <div class="fill-blank-question">
+                            {% for part in question_parts %}
+                                {{ part }}
+                                {% if not loop.last %}
+                                <input type="text" name="blank_{{ loop.parent.index0 }}_{{ loop.index0 }}" 
+                                       class="blank-input" required>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        <input type="hidden" name="blank_count_{{ loop.index0 }}" value="{{ question_parts|length - 1 }}">
+                    </div>
+                    
+                    <!-- Matching Question -->
+                    {% elif question.question_type == 'matching' %}
+                    <div class="matching">
+                        <div class="matching-container">
+                            <div class="matching-left">
+                                {% for item in question.left_items %}
+                                <div class="matching-item" data-item-id="{{ loop.index0 }}">
+                                    <span class="item-number">{{ loop.index }}.</span>
+                                    <span class="item-text">{{ item }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            
+                            <div class="matching-right">
+                                {% for item in question.right_items %}
+                                <div class="matching-item">
+                                    <div class="matching-select-container">
+                                        <select name="matching_{{ loop.parent.index0 }}_{{ loop.index0 }}" required>
+                                            <option value="">-- Select Match --</option>
+                                            {% for left_item in question.left_items %}
+                                            <option value="{{ loop.index0 }}">{{ loop.index }}. {{ left_item }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <span class="item-text">{{ item }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Essay Question -->
+                    {% elif question.question_type == 'essay' %}
+                    <div class="essay">
+                        <textarea name="answer_{{ loop.index0 }}" rows="10" 
+                                  placeholder="Write your essay here..."
+                                  {% if question.ai_detection %}data-ai-detection="true"{% endif %}
+                                  {% if question.anti_plagiarism %}data-plagiarism="true"{% endif %}
+                                  data-word-limit="{{ question.word_limit or 500 }}"
+                                  required></textarea>
+                        
+                        <div class="essay-controls">
+                            <div class="word-count">
+                                <span id="word-count-{{ loop.index0 }}">0</span> / 
+                                <span>{{ question.word_limit or 500 }}</span> words
+                            </div>
+                            
+                            {% if question.ai_detection or question.anti_plagiarism %}
+                            <div class="detection-notice">
+                                <i class="fas fa-shield-alt"></i> 
+                                This essay will be checked for 
+                                {% if question.ai_detection and question.anti_plagiarism %}
+                                AI-generated content and plagiarism
+                                {% elif question.ai_detection %}
+                                AI-generated content
+                                {% elif question.anti_plagiarism %}
+                                plagiarism
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
             </div>
-
+            {% endfor %}
+            
             <div class="quiz-navigation">
-                <button type="button" id="prevBtn" class="quiz-nav-btn" disabled>
+                <button type="button" id="prev-btn" class="quiz-nav-btn" disabled>
                     <i class="fas fa-arrow-left"></i> Previous
                 </button>
-                <button type="button" id="nextBtn" class="quiz-nav-btn">
+                
+                <button type="button" id="next-btn" class="quiz-nav-btn">
                     Next <i class="fas fa-arrow-right"></i>
                 </button>
-                <button type="submit" id="submitBtn" class="quiz-nav-btn" style="display: none;">
-                    Submit Quiz <i class="fas fa-paper-plane"></i>
+                
+                <button type="submit" id="submit-btn" class="quiz-nav-btn" style="display: none;">
+                    Submit <i class="fas fa-check"></i>
                 </button>
+            </div>
+            
+            <div class="quiz-progress">
+                {% for q in quiz.questions %}
+                <div class="progress-dot {% if loop.index0 == 0 %}active{% endif %}" data-question="{{ loop.index0 }}"></div>
+                {% endfor %}
             </div>
         </form>
     </div>
 
-    <div class="webcam-container" style="display: none;">
-        <video id="webcam" autoplay playsinline></video>
-        <div class="monitoring-status">Monitoring Status: <span id="status">Inactive</span></div>
+    <div class="webcam-container">
+        <video id="webcam" autoplay></video>
+        <div class="monitoring-status" id="monitoring-status">
+            <button id="webcam-permission-btn" style="background: none; border: none; color: white; cursor: pointer; width: 100%;">
+                Click to enable webcam
+            </button>
+        </div>
     </div>
 
     <script>
-        // Store quiz session data in localStorage to handle page refresh
-        const quizId = "{{ quiz.id }}";
-        const quizSessionKey = `quiz_session_${quizId}`;
-        let startTime;
-        let questionTimeLimits = [{% for question in quiz.questions %}{% if question.time_limit %}{{ question.time_limit }}{% else %}30{% endif %}{% if not loop.last %},{% endif %}{% endfor %}];
-        let currentQuestionIndex = 0;
-        let currentQuestionTimeLeft;
-        
-        // Check if we have an existing session to handle page refresh
-        function initializeOrResumeSession() {
-            const existingSession = localStorage.getItem(quizSessionKey);
+    document.addEventListener('DOMContentLoaded', function() {
+        try {
+            // Initialize variables
+            const form = document.getElementById('quiz-form');
+            const prevBtn = document.getElementById('prev-btn');
+            const nextBtn = document.getElementById('next-btn');
+            const submitBtn = document.getElementById('submit-btn');
+            const currentQuestionInput = document.getElementById('current_question');
+            const questionContainers = document.querySelectorAll('.quiz-question-container');
+            const progressDots = document.querySelectorAll('.progress-dot');
+            const totalQuestions = {{ quiz.questions|length }};
             
-            if (existingSession) {
-                // Resume existing session
-                const sessionData = JSON.parse(existingSession);
-                startTime = new Date(sessionData.startTime);
-                currentQuestionIndex = sessionData.currentQuestion || 0;
-                const elapsedTime = Math.floor((new Date() - startTime) / 1000);
-                
-                // Calculate time left for current question
-                let timeConsumed = 0;
-                for (let i = 0; i < currentQuestionIndex; i++) {
-                    timeConsumed += questionTimeLimits[i];
-                }
-                
-                currentQuestionTimeLeft = questionTimeLimits[currentQuestionIndex] - (elapsedTime - timeConsumed);
-                
-                // If timer expired for current question, move to next question or submit
-                if (currentQuestionTimeLeft <= 0) {
-                    // Check if this is the last question
-                    if (currentQuestionIndex >= questionTimeLimits.length - 1) {
-                        document.getElementById("quizForm").submit();
-                        return false;
-                    } else {
-                        // Move to next question
-                        currentQuestionIndex++;
-                        currentQuestionTimeLeft = questionTimeLimits[currentQuestionIndex];
-                    }
-                }
-                
-                // Restore current question display
-                document.querySelectorAll('.quiz-question').forEach((q, i) => {
-                    q.style.display = i === currentQuestionIndex ? 'block' : 'none';
-                });
-                
-                return true;
-            } else {
-                // Start new session
-                startTime = new Date();
-                currentQuestionIndex = 0;
-                currentQuestionTimeLeft = questionTimeLimits[0];
-                
-                // Save session data
-                saveSessionData();
-                return true;
-            }
-        }
-
-        function saveSessionData() {
-            const sessionData = {
-                startTime: startTime.toISOString(),
-                currentQuestion: currentQuestionIndex
-            };
-            localStorage.setItem(quizSessionKey, JSON.stringify(sessionData));
-        }
-
-        // Clear session when quiz is submitted
-        document.getElementById('quizForm').addEventListener('submit', function() {
-            localStorage.removeItem(quizSessionKey);
-        });
-
-        document.addEventListener('DOMContentLoaded', function() {
-            // Setup camera permission button
-            const permissionBtn = document.getElementById('cameraPermissionBtn');
-            const permissionContainer = document.getElementById('cameraPermission');
-            const quizForm = document.getElementById('quizForm');
-            const webcamContainer = document.querySelector('.webcam-container');
+            // Webcam monitoring variables - declare these at the top
+            let webcamStream = null;
+            let webcamInterval = null;
+            const webcamElement = document.getElementById('webcam');
+            const monitoringStatus = document.getElementById('monitoring-status');
+            const webcamPermissionBtn = document.getElementById('webcam-permission-btn');
             
-            permissionBtn.addEventListener('click', function() {
-                startWebcam().then(success => {
-                    if (success) {
-                        permissionContainer.style.display = 'none';
-                        quizForm.style.display = 'block';
-                        webcamContainer.style.display = 'block';
-                        // Start the quiz session after camera permission
-                        initializeOrResumeSession();
-                        startTimer();
-                    }
+            // Add webcam permission button listener
+            webcamPermissionBtn.addEventListener('click', function() {
+                setupWebcam();
+            });
+            
+            // Question timers
+            const questionTimers = [];
+            const questionStartTimes = [];
+            let currentQuestionIndex = 0;
+            let globalTimerInterval;
+            let globalTimeLeft = {{ quiz.total_time }} || 0;
+            let quizStartTime = Date.now();
+            
+            // Initialize word counters for essays
+            const essays = document.querySelectorAll('textarea[data-word-limit]');
+            essays.forEach((essay, index) => {
+                essay.addEventListener('input', function() {
+                    updateWordCount(essay, index);
                 });
             });
             
-            // Timer functionality
-            const timerDisplay = document.getElementById('timer');
-            let countdownTimer;
-            
-            function startTimer() {
-                updateTimerDisplay();
+            function updateWordCount(essay, index) {
+                const wordCountElement = document.getElementById(`word-count-${index}`);
+                const wordLimit = parseInt(essay.getAttribute('data-word-limit'));
+                const text = essay.value.trim();
+                const wordCount = text ? text.split(/\s+/).length : 0;
                 
-                countdownTimer = setInterval(function() {
-                    currentQuestionTimeLeft--;
-                    updateTimerDisplay();
-                    
-                    if (currentQuestionTimeLeft <= 0) {
-                        // Time's up for this question
-                        clearInterval(countdownTimer);
-                        
-                        // If this is the last question, submit the form
-                        if (currentQuestionIndex >= questionTimeLimits.length - 1) {
-                            localStorage.removeItem(quizSessionKey);
-                            document.getElementById("quizForm").submit();
-                        } else {
-                            // Move to next question
-                            const questions = document.querySelectorAll('.quiz-question');
-                            questions[currentQuestionIndex].style.display = 'none';
-                            currentQuestionIndex++;
-                            questions[currentQuestionIndex].style.display = 'block';
-                            currentQuestionTimeLeft = questionTimeLimits[currentQuestionIndex];
-                            saveSessionData();
-                            updateNavButtons();
-                            startTimer();
-                        }
-                    }
-                }, 1000);
-            }
-            
-            function updateTimerDisplay() {
-                const minutes = Math.floor(currentQuestionTimeLeft / 60);
-                const seconds = currentQuestionTimeLeft % 60;
-                const displayMinutes = minutes < 10 ? '0' + minutes : minutes;
-                const displaySeconds = seconds < 10 ? '0' + seconds : seconds;
-                timerDisplay.textContent = displayMinutes + ':' + displaySeconds;
+                wordCountElement.textContent = wordCount;
                 
-                // Visual indicator when time is running low
-                if (currentQuestionTimeLeft <= 10) {
-                    timerDisplay.style.color = '#ff3333';
-                } else if (currentQuestionTimeLeft <= 30) {
-                    timerDisplay.style.color = '#ff9900';
+                if (wordCount > wordLimit) {
+                    wordCountElement.classList.add('exceeded');
                 } else {
-                    timerDisplay.style.color = '#6366f1';
+                    wordCountElement.classList.remove('exceeded');
                 }
             }
-
-            // Question navigation functionality
-            const questions = document.querySelectorAll('.quiz-question');
-            const nextBtn = document.getElementById('nextBtn');
-            const prevBtn = document.getElementById('prevBtn');
-            const submitBtn = document.getElementById('submitBtn');
-
-            function updateNavButtons() {
-                prevBtn.disabled = currentQuestionIndex === 0;
-                nextBtn.style.display = currentQuestionIndex === questions.length - 1 ? 'none' : 'flex';
-                submitBtn.style.display = currentQuestionIndex === questions.length - 1 ? 'flex' : 'none';
+            
+            // Initialize timers
+            function startGlobalTimer() {
+                try {
+                    const timerDisplay = document.getElementById('timer');
+                    
+                    function updateTimer() {
+                        const minutes = Math.floor(globalTimeLeft / 60);
+                        const seconds = globalTimeLeft % 60;
+                        
+                        timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                        
+                        if (globalTimeLeft <= 0) {
+                            clearInterval(globalTimerInterval);
+                            // Only auto-submit if they've had the quiz open for at least 5 seconds
+                            if (Date.now() - quizStartTime > 5000) {
+                                submitQuiz(true); // Force submit when time is up
+                            } else {
+                                // Reset the timer if we just started
+                                globalTimeLeft = {{ quiz.total_time }} || 0;
+                            }
+                        } else {
+                            globalTimeLeft--;
+                        }
+                    }
+                    
+                    updateTimer(); // Call once immediately
+                    globalTimerInterval = setInterval(updateTimer, 1000);
+                } catch (error) {
+                    console.error('Error starting global timer:', error);
+                }
+            }
+            
+            function startQuestionTimer(questionIndex) {
+                try {
+                    const questions = {{ quiz.questions|tojson }};
+                    
+                    // Safely get the question and its time limit
+                    const question = questions[questionIndex] || {};
+                    const timePerQuestion = question.time_per_question || 30;
+                    let timeLeft = timePerQuestion;
+                    
+                    const timeLeftDisplay = document.getElementById(`time-left-${questionIndex}`);
+                    const progressFill = document.getElementById(`progress-fill-${questionIndex}`);
+                    
+                    // Clear previous timer if exists
+                    if (questionTimers[questionIndex]) {
+                        clearInterval(questionTimers[questionIndex]);
+                    }
+                    
+                    function updateTimer() {
+                        const percentLeft = (timeLeft / timePerQuestion) * 100;
+                        progressFill.style.width = `${percentLeft}%`;
+                        
+                        if (timeLeft <= 5) {
+                            progressFill.classList.add('danger');
+                        } else if (timeLeft <= 10) {
+                            progressFill.classList.add('warning');
+                        }
+                        
+                        timeLeftDisplay.textContent = timeLeft;
+                        
+                        if (timeLeft <= 0) {
+                            clearInterval(questionTimers[questionIndex]);
+                            
+                            // Only auto-advance if they've been on this question for at least 3 seconds
+                            if (Date.now() - questionStartTimes[questionIndex] > 3000) {
+                                // Auto-advance to next question when time is up
+                                if (questionIndex < totalQuestions - 1) {
+                                    showQuestion(questionIndex + 1);
+                                } else {
+                                    submitQuiz(true); // Force submit on the last question
+                                }
+                            } else {
+                                // Reset timer if we just started
+                                timeLeft = timePerQuestion;
+                                questionStartTimes[questionIndex] = Date.now();
+                            }
+                        } else {
+                            timeLeft--;
+                        }
+                    }
+                    
+                    // Mark the start time for this question
+                    questionStartTimes[questionIndex] = Date.now();
+                    
+                    updateTimer(); // Call once immediately
+                    questionTimers[questionIndex] = setInterval(updateTimer, 1000);
+                } catch (error) {
+                    console.error('Error starting question timer:', error);
+                }
+            }
+            
+            // Navigation functions
+            function showQuestion(index) {
+                // Hide all questions
+                questionContainers.forEach(container => {
+                    container.style.display = 'none';
+                });
                 
                 // Update progress dots
-                document.querySelectorAll('.progress-dot').forEach((dot, index) => {
-                    if (index === currentQuestionIndex) {
+                progressDots.forEach((dot, i) => {
+                    if (i === index) {
                         dot.classList.add('active');
                     } else {
                         dot.classList.remove('active');
                     }
                 });
-            }
-
-            nextBtn.addEventListener('click', function() {
-                // Clear current timer
-                clearInterval(countdownTimer);
                 
-                // Move to next question
-                questions[currentQuestionIndex].style.display = 'none';
-                currentQuestionIndex++;
-                questions[currentQuestionIndex].style.display = 'block';
-                
-                // Reset timer for new question
-                currentQuestionTimeLeft = questionTimeLimits[currentQuestionIndex];
-                
-                // Update navigation and save state
-                updateNavButtons();
-                saveSessionData();
-                
-                // Start timer for new question
-                startTimer();
-            });
-
-            prevBtn.addEventListener('click', function() {
-                // Clear current timer
-                clearInterval(countdownTimer);
-                
-                // Move to previous question
-                questions[currentQuestionIndex].style.display = 'none';
-                currentQuestionIndex--;
-                questions[currentQuestionIndex].style.display = 'block';
-                
-                // Reset timer for new question
-                currentQuestionTimeLeft = questionTimeLimits[currentQuestionIndex];
-                
-                // Update navigation and save state
-                updateNavButtons();
-                saveSessionData();
-                
-                // Start timer for new question
-                startTimer();
-            });
-
-            // Initialize progress dots
-            const progressContainer = document.createElement('div');
-            progressContainer.className = 'quiz-progress';
-            
-            for (let i = 0; i < questions.length; i++) {
-                const dot = document.createElement('div');
-                dot.className = i === 0 ? 'progress-dot active' : 'progress-dot';
-                progressContainer.appendChild(dot);
-            }
-            
-            document.querySelector('.quiz-navigation').insertAdjacentElement('afterend', progressContainer);
-            updateNavButtons();
-
-            // Option selection
-            document.querySelectorAll('.quiz-option').forEach(option => {
-                option.addEventListener('click', function() {
-                    const name = this.querySelector('input').name;
-                    document.querySelectorAll(`input[name="${name}"]`).forEach(input => {
-                        input.parentElement.classList.remove('selected');
-                    });
-                    this.classList.add('selected');
-                    this.querySelector('input').checked = true;
-                });
-            });
-        });
-
-        // Webcam functionality
-        const webcam = document.getElementById('webcam');
-        const statusDisplay = document.getElementById('status');
-        let eyeTrackingActive = false;
-        let eyesClosedStartTime = null;
-        let eyesClosedThreshold = 3000; // 3 seconds threshold
-        let eyesClosedWarningThreshold = 1500; // 1.5 seconds warning threshold
-        let eyeDetectionInterval;
-
-        async function startWebcam() {
-            try {
-                // Explicitly request user permission
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { 
-                        width: { ideal: 320 },
-                        height: { ideal: 240 },
-                        facingMode: 'user'
-                    } 
-                });
-                webcam.srcObject = stream;
-                webcam.play();
-                statusDisplay.textContent = 'Active';
-                statusDisplay.parentElement.className = 'monitoring-status active';
-                eyeTrackingActive = true;
-                
-                // Start eye tracking after camera is initialized
-                webcam.addEventListener('loadeddata', startEyeTracking);
-                
-                return true;
-                
-            } catch (error) {
-                console.error('Error accessing webcam:', error);
-                statusDisplay.textContent = 'Error: Camera Access Denied';
-                statusDisplay.parentElement.className = 'monitoring-status error';
-                
-                // Show a button to retry camera permission
-                const retryBtn = document.createElement('button');
-                retryBtn.textContent = 'Allow Camera Access';
-                retryBtn.style.display = 'block';
-                retryBtn.style.margin = '10px auto';
-                retryBtn.style.padding = '8px 15px';
-                retryBtn.style.background = '#4f46e5';
-                retryBtn.style.color = 'white';
-                retryBtn.style.border = 'none';
-                retryBtn.style.borderRadius = '4px';
-                retryBtn.style.cursor = 'pointer';
-                
-                retryBtn.addEventListener('click', () => {
-                    retryBtn.remove();
-                    startWebcam();
-                });
-                
-                document.querySelector('.webcam-container').appendChild(retryBtn);
-                webcamContainer.style.display = 'block';
-                
-                return false;
-            }
-        }
-
-        function startEyeTracking() {
-            // Create a canvas element to process video frames
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            canvas.width = webcam.videoWidth;
-            canvas.height = webcam.videoHeight;
-            
-            // Function to check if eyes are open or closed
-            function checkEyes() {
-                if (!eyeTrackingActive) return;
-                
-                // Draw current video frame on canvas
-                ctx.drawImage(webcam, 0, 0, canvas.width, canvas.height);
-                
-                // Send frame to backend for processing
-                // In a real implementation, this would use face-api.js or similar library
-                // for frontend processing or send to backend API
-                // For demo, we'll simulate eye detection with a fetch API call
-                
-                // Convert canvas to base64 image
-                const imageData = canvas.toDataURL('image/jpeg');
-                
-                // Send to backend for processing (in real implementation)
-                // fetch('/api/check-eyes', {
-                //     method: 'POST',
-                //     body: JSON.stringify({ image: imageData }),
-                //     headers: { 'Content-Type': 'application/json' }
-                // })
-                // .then(response => response.json())
-                // .then(data => handleEyeDetection(data.eyesOpen))
-                // .catch(error => console.error('Eye detection error:', error));
-                
-                // For demo purposes, simulate random eye detection (remove in production)
-                simulateEyeDetection();
-            }
-            
-            // Simulation function (remove in production and use real detection)
-            function simulateEyeDetection() {
-                // Random check - 95% chance eyes are open (for demo only)
-                const eyesOpen = Math.random() > 0.05;
-                handleEyeDetection(eyesOpen);
-            }
-            
-            function handleEyeDetection(eyesOpen) {
-                if (!eyesOpen) {
-                    // Eyes closed detection
-                    if (eyesClosedStartTime === null) {
-                        eyesClosedStartTime = Date.now();
-                        statusDisplay.textContent = 'Warning: Eyes Not Detected';
-                        statusDisplay.parentElement.className = 'monitoring-status warning';
-                    } else {
-                        const eyesClosedDuration = Date.now() - eyesClosedStartTime;
-                        
-                        // Show warning after threshold
-                        if (eyesClosedDuration > eyesClosedWarningThreshold) {
-                            statusDisplay.textContent = `Warning: Look at Screen! (${Math.ceil((eyesClosedThreshold - eyesClosedDuration) / 1000)}s)`;
-                            statusDisplay.parentElement.className = 'monitoring-status warning';
-                        }
-                        
-                        // Fail quiz after threshold
-                        if (eyesClosedDuration > eyesClosedThreshold) {
-                            statusDisplay.textContent = 'Failed: Eyes Off Screen';
-                            statusDisplay.parentElement.className = 'monitoring-status error';
-                            
-                            // Add a hidden field to the form indicating the failure
-                            const failedInput = document.createElement('input');
-                            failedInput.type = 'hidden';
-                            failedInput.name = 'eye_tracking_failed';
-                            failedInput.value = 'true';
-                            quizForm.appendChild(failedInput);
-                            
-                            // Submit the form with eye tracking failure
-                            clearInterval(eyeDetectionInterval);
-                            quizForm.action = "{{ url_for('fail_quiz') }}";
-                            quizForm.submit();
-                        }
-                    }
-                } else {
-                    // Eyes open detection
-                    eyesClosedStartTime = null;
-                    statusDisplay.textContent = 'Active';
-                    statusDisplay.parentElement.className = 'monitoring-status active';
+                // Show the selected question
+                const selectedQuestion = document.getElementById(`question-${index}`);
+                if (selectedQuestion) {
+                    selectedQuestion.style.display = 'block';
+                    currentQuestionIndex = index;
+                    currentQuestionInput.value = index;
+                    
+                    // Start timer for this question
+                    startQuestionTimer(index);
+                    
+                    // Update navigation buttons
+                    updateNavigationButtons();
                 }
             }
             
-            // Run eye detection every 500ms
-            eyeDetectionInterval = setInterval(checkEyes, 500);
-        }
-
-        // Start webcam with eye tracking on page load
-        startWebcam();
-
-        // Add event listener for page visibility changes
-        document.addEventListener('visibilitychange', function() {
-            if (document.hidden) {
-                // Tab is now hidden - count as eyes not visible
-                statusDisplay.textContent = 'Warning: Tab Changed';
-                statusDisplay.parentElement.className = 'monitoring-status warning';
-                eyesClosedStartTime = eyesClosedStartTime || Date.now();
-            } else {
-                // Tab is visible again
-                // We'll keep the warning for a moment to discourage tab switching
-                setTimeout(() => {
-                    if (eyeTrackingActive) {
-                        statusDisplay.textContent = 'Active';
-                        statusDisplay.parentElement.className = 'monitoring-status active';
-                        eyesClosedStartTime = null;
-                    }
-                }, 1000);
+            function updateNavigationButtons() {
+                prevBtn.disabled = currentQuestionIndex === 0;
+                
+                if (currentQuestionIndex === totalQuestions - 1) {
+                    nextBtn.style.display = 'none';
+                    submitBtn.style.display = 'block';
+                } else {
+                    nextBtn.style.display = 'block';
+                    submitBtn.style.display = 'none';
+                }
             }
-        });
+            
+            // Event listeners for navigation
+            prevBtn.addEventListener('click', () => {
+                if (currentQuestionIndex > 0) {
+                    showQuestion(currentQuestionIndex - 1);
+                }
+            });
+            
+            nextBtn.addEventListener('click', () => {
+                if (currentQuestionIndex < totalQuestions - 1) {
+                    showQuestion(currentQuestionIndex + 1);
+                }
+            });
+            
+            // Progress dots navigation
+            progressDots.forEach((dot, index) => {
+                dot.addEventListener('click', () => {
+                    showQuestion(index);
+                });
+            });
+            
+            // Form submission
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                submitQuiz();
+            });
+            
+            function submitQuiz(isTimeout = false) {
+                // Clear all timers
+                clearInterval(globalTimerInterval);
+                questionTimers.forEach(timer => {
+                    if (timer) clearInterval(timer);
+                });
+                
+                // Check if we need to collect webcam images one more time before submitting
+                if (webcamInterval) {
+                    clearInterval(webcamInterval);
+                    captureWebcamImage(true); // Final capture
+                }
+                
+                // Add timeout flag if submission due to time expiry
+                if (isTimeout) {
+                    const timeoutInput = document.createElement('input');
+                    timeoutInput.type = 'hidden';
+                    timeoutInput.name = 'timeout';
+                    timeoutInput.value = 'true';
+                    form.appendChild(timeoutInput);
+                }
+                
+                // Submit the form
+                form.submit();
+            }
+            
+            // Webcam monitoring
+            async function setupWebcam() {
+                try {
+                    // Update status to show we're requesting permission
+                    monitoringStatus.innerHTML = '<span>Requesting camera permission...</span>';
+                    monitoringStatus.className = 'monitoring-status';
+                    
+                    webcamStream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            facingMode: 'user',
+                            width: { ideal: 320 },
+                            height: { ideal: 240 }
+                        }
+                    });
+                    
+                    webcamElement.srcObject = webcamStream;
+                    monitoringStatus.textContent = 'Monitoring';
+                    monitoringStatus.className = 'monitoring-status active';
+                    
+                    // Start periodic capture
+                    webcamInterval = setInterval(captureWebcamImage, 5000); // Capture every 5 seconds
+                } catch (error) {
+                    console.error('Error accessing webcam:', error);
+                    // Show a more informative message and provide ability to retry
+                    monitoringStatus.innerHTML = '<button id="retry-webcam-btn" style="background: none; border: none; color: white; cursor: pointer; width: 100%;">Permission denied. Click to retry</button>';
+                    monitoringStatus.className = 'monitoring-status error';
+                    
+                    // Add event listener to retry button
+                    document.getElementById('retry-webcam-btn').addEventListener('click', function() {
+                        setupWebcam();
+                    });
+                    
+                    // Continue quiz even without webcam
+                    console.log('Continuing quiz without webcam monitoring');
+                }
+            }
+            
+            function captureWebcamImage(isFinal = false) {
+                // Skip if webcam stream is not available
+                if (!webcamStream || !webcamElement || !webcamElement.videoWidth) {
+                    console.log('Webcam stream not available, skipping image capture');
+                    return;
+                }
+                
+                const canvas = document.createElement('canvas');
+                canvas.width = webcamElement.videoWidth;
+                canvas.height = webcamElement.videoHeight;
+                
+                const context = canvas.getContext('2d');
+                context.drawImage(webcamElement, 0, 0, canvas.width, canvas.height);
+                
+                const imageDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                
+                // Send to server for eye tracking/face detection
+                fetch('/api/check-eyes', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        image: imageDataUrl,
+                        quiz_id: '{{ quiz.id }}',
+                        timestamp: new Date().toISOString(),
+                        is_final: isFinal
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.warning) {
+                        monitoringStatus.textContent = data.message;
+                        monitoringStatus.className = 'monitoring-status warning';
+                    } else {
+                        monitoringStatus.textContent = 'Monitoring';
+                        monitoringStatus.className = 'monitoring-status active';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking eyes:', error);
+                });
+            }
+            
+            // Quiz options selection highlighting
+            const quizOptions = document.querySelectorAll('.quiz-option');
+            quizOptions.forEach(option => {
+                option.addEventListener('click', function() {
+                    // For radio button based options
+                    const radioInput = this.querySelector('input[type="radio"]');
+                    if (radioInput) {
+                        radioInput.checked = true;
+                        
+                        // Remove selected class from all options in the same group
+                        const name = radioInput.name;
+                        document.querySelectorAll(`input[name="${name}"]`).forEach(input => {
+                            input.closest('.quiz-option').classList.remove('selected');
+                        });
+                        
+                        // Add selected class to this option
+                        this.classList.add('selected');
+                    }
+                });
+            });
+            
+            // Setup webcam on page load - wrapped in try/catch
+            try {
+                // No longer calling setupWebcam automatically
+                // Users will click the button to enable it
+                console.log('Webcam ready for activation by user');
+            } catch (error) {
+                console.error('Error setting up webcam:', error);
+                // Continue with quiz regardless of webcam issues
+            }
+            
+            // Start timers after everything is defined - wrapped in try/catch
+            try {
+                startGlobalTimer();
+                startQuestionTimer(0);
+            } catch (error) {
+                console.error('Error starting timers:', error);
+                // Show the first question even if timers fail
+                if (questionContainers.length > 0) {
+                    questionContainers[0].style.display = 'block';
+                }
+            }
+        } catch (error) {
+            console.error('Error initializing quiz:', error);
+            alert('There was an error loading the quiz. Please refresh the page and try again.');
+        }
+    });
     </script>
 </body>
 </html>

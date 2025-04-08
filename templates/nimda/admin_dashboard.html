@@ -283,42 +283,270 @@ body {
 
         .time-limit-container input[type="number"] {
             width: 100px;
-        }       </style>
+        }
+
+        /* New styles for question types */
+        .question-type-selector {
+            margin-bottom: 15px;
+        }
+        
+        .question-type-selector select {
+            width: 100%;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            background-color: #fff;
+        }
+        
+        .tip {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 10px;
+            font-style: italic;
+        }
+        
+        /* True/False styles */
+        .tf-container {
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .tf-options {
+            display: flex;
+            gap: 30px;
+            margin-top: 10px;
+        }
+        
+        .tf-options label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        
+        .tf-options input[type="radio"] {
+            margin-right: 8px;
+        }
+        
+        /* Short answer styles */
+        .short-answer-container {
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .feature-toggle {
+            margin-top: 15px;
+        }
+        
+        .feature-toggle label {
+            display: flex;
+            align-items: center;
+            font-weight: normal;
+        }
+        
+        .feature-toggle input[type="checkbox"] {
+            margin-right: 10px;
+        }
+        
+        /* Fill in the blanks styles */
+        .fill-blank-container {
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .blanks-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .blank-input {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .blank-input input {
+            flex: 1;
+        }
+        
+        .add-blank-btn, .remove-blank-btn {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            color: white;
+            cursor: pointer;
+        }
+        
+        .add-blank-btn {
+            background-color: #4CAF50;
+        }
+        
+        .remove-blank-btn {
+            background-color: #f44336;
+        }
+        
+        /* Matching styles */
+        .matching-container {
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .matching-columns {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .matching-left, .matching-right {
+            flex: 1;
+        }
+        
+        .matching-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            gap: 10px;
+        }
+        
+        .matching-item input {
+            flex: 1;
+        }
+        
+        .matching-item select {
+            min-width: 100px;
+        }
+        
+        .add-matching-btn {
+            margin-top: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .remove-matching-btn {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            background-color: #f44336;
+            color: white;
+            cursor: pointer;
+        }
+        
+        /* Essay styles */
+        .essay-container {
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .feature-toggles {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 15px;
+        }
+        
+        .word-limit {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .word-limit input {
+            width: 100px;
+        }
+        
+        /* Author info */
+        .author-info {
+            border-bottom: 1px solid #eee;
+            padding-bottom: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .author-info label {
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        /* Add styles for the reset button */
+        .action-btns {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .reset-btn {
+            cursor: pointer;
+            color: #3b82f6;
+        }
+        
+        .reset-btn:hover {
+            color: #1d4ed8;
+        }
+    </style>
 </head>
 <body>
     <h2>Admin Dashboard</h2>
 
-    <!-- Quiz Posting Form -->
-    <form id="quizForm" action="{{ url_for('admin_post_quiz') }}" method="post">
-        <label for="strand">Select Strand:</label>
+    <!-- Quiz Form -->
+    <h3>Create a New Quiz</h3>
+    <form id="quizForm" action="/nimda/post_quiz" method="post">
+        <label for="quiz_title">Title or Objective:</label>
+        <input type="text" id="quiz_title" name="quiz_title" required>
+        
+        <label for="quiz_description">Description:</label>
+        <textarea id="quiz_description" name="quiz_description" rows="3" required></textarea>
+        
+        <label for="quiz_topics">Topics Covered:</label>
+        <textarea id="quiz_topics" name="quiz_topics" rows="2" required></textarea>
+        
+        <label for="author_first_name">Author First Name:</label>
+        <input type="text" id="author_first_name" name="author_first_name" placeholder="e.g., Henri">
+        
+        <label for="author_last_name">Author Last Name:</label>
+        <input type="text" id="author_last_name" name="author_last_name" placeholder="e.g., Leon">
+        
+        <label for="grade_level">Grade Level:</label>
+        <select id="grade_level" name="grade_level" required>
+            <option value="">Select Grade Level</option>
+            <option value="Grade 11">Grade 11</option>
+            <option value="Grade 12">Grade 12</option>
+            <option value="Grade 11-12">Grade 11-12</option>
+        </select>
+        
+        <label for="strand">Strand:</label>
         <select id="strand" name="strand" required>
             <option value="">Select a strand</option>
             <option value="STEM">STEM</option>
-            <option value="ICT">ICT</option>
             <option value="HUMSS">HUMSS</option>
-            <option value="TVL">TVL</option>
             <option value="ABM">ABM</option>
+            <option value="ICT">ICT</option>
+            <option value="TVL">TVL</option>
         </select>
 
-        <label for="quiz_category">Quiz Category:</label>
+        <label for="quiz_category">Category:</label>
         <select id="quiz_category" name="quiz_category" required>
-            <option value="">Select strand first</option>
+            <option value="">Select a category</option>
         </select>
 
-        <label for="quiz_title">Quiz Title:</label>
-        <input type="text" id="quiz_title" name="quiz_title" required>
-
-        <label for="quiz_description">Quiz Description:</label>
-        <textarea id="quiz_description" name="quiz_description" required></textarea>
-
-        <label for="quiz_topics">Quiz Topics (comma separated):</label>
-        <input type="text" id="quiz_topics" name="quiz_topics" placeholder="e.g., Topic1, Topic2, Topic3" required>
-
-        <label for="time_per_question">Time per Question (seconds):</label>
-        <input type="number" id="time_per_question" name="time_per_question" value="30" min="10" max="300" required>
-        <small>Set how much time students will have for each question (10-300 seconds)</small>
-
-        <button type="submit">Post Quiz</button>
+        <button type="submit">Create Quiz</button>
     </form>
 
     <h3>Posted Quizzes</h3>
@@ -334,19 +562,43 @@ body {
             <span class="edit-btn" data-quiz-id="{{ quiz.id }}" data-quiz-title="{{ quiz.title }}">
                 <i class="fas fa-edit"></i> {% if quiz.questions %}Edit Questions{% else %}Add Questions{% endif %}
             </span>
-            <span class="delete-btn" data-quiz-id="{{ quiz.id }}"><i class="fas fa-trash"></i></span>
+            <div class="action-btns">
+                <span class="reset-btn" data-quiz-id="{{ quiz.id }}" data-quiz-title="{{ quiz.title }}">
+                    <i class="fas fa-redo"></i> Reset Quiz
+                </span>
+                <span class="delete-btn" data-quiz-id="{{ quiz.id }}">
+                    <i class="fas fa-trash"></i> Delete
+                </span>
+            </div>
         </li>
         {% endfor %}
     </ul>
 
-    <!-- Quiz Question Creation/Editing Popup -->
+    <!-- Quiz Questions Form Popup -->
     <div class="popup-container" id="quizQuestionPopup">
         <div class="popup">
-            <h3 id="quizQuestionPopupTitle">Create Quiz Questions</h3>
-            <form id="quizQuestionsForm">
-                <input type="hidden" id="quizQuestionQuizId" name="quiz_id" value="">
+            <h3 id="quizQuestionPopupTitle">Create/Edit Quiz Questions</h3>
+            <form id="quizQuestionsForm" action="/nimda/save_quiz_questions" method="post">
+                <input type="hidden" id="quizQuestionQuizId" name="quiz_id">
+                
+                <div class="author-info">
+                    <label for="edit_author_first_name">Author First Name:</label>
+                    <input type="text" id="edit_author_first_name" name="author_first_name" placeholder="e.g., Henri">
+                    
+                    <label for="edit_author_last_name">Author Last Name:</label>
+                    <input type="text" id="edit_author_last_name" name="author_last_name" placeholder="e.g., Leon">
+                    
+                    <label for="edit_grade_level">Grade Level:</label>
+                    <select id="edit_grade_level" name="grade_level" required>
+                        <option value="">Select Grade Level</option>
+                        <option value="Grade 11">Grade 11</option>
+                        <option value="Grade 12">Grade 12</option>
+                        <option value="Grade 11-12">Grade 11-12</option>
+                    </select>
+                </div>
+                
                 <div id="questionsContainer">
-                    <!-- Questions will be dynamically added here -->
+                    <!-- Questions will be added here -->
                 </div>
                 
                 <div>
@@ -386,6 +638,19 @@ body {
         </div>
     </div>
 
+    <!-- Reset Quiz Confirmation Popup -->
+    <div class="popup-container" id="resetPopup">
+        <div class="popup">
+            <i class="fas fa-exclamation-circle"></i>
+            <h3>Reset Quiz?</h3>
+            <p>Are you sure you want to reset this quiz? This will allow students to retake it, but previous results will be cleared.</p>
+            <div class="button-group">
+                <button class="cancel-btn" onclick="closePopup('resetPopup')">Cancel</button>
+                <button id="confirmReset">Reset Quiz</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Strand and Category Selection
         const strandSelect = document.getElementById('strand');
@@ -418,11 +683,16 @@ body {
 
         // Add Question Dynamically
         document.getElementById('addQuestionBtn').addEventListener('click', function() {
+            addNewQuestion();
+        });
+
+        function addNewQuestion() {
             const container = document.getElementById('questionsContainer');
             const questionIndex = container.children.length;
             const newQuestionBlock = document.createElement('div');
             newQuestionBlock.className = 'question-block';
             newQuestionBlock.dataset.questionIndex = questionIndex;
+            
             newQuestionBlock.innerHTML = `
                 <span class="remove-question-btn" onclick="removeQuestion(this)">
                     <i class="fas fa-trash"></i>
@@ -431,11 +701,43 @@ body {
                 <textarea name="questions[]" required class="question-input" rows="3"></textarea>
                 <input type="hidden" name="question_index[]" value="${questionIndex}">
                 
+                <div class="question-type-selector">
+                    <label>Question Type:</label>
+                    <select name="question_types[]" onchange="updateQuestionFields(this, ${questionIndex})" required>
+                        <option value="multiple_choice">Multiple Choice</option>
+                        <option value="true_false">True or False</option>
+                        <option value="short_answer">Short Answer</option>
+                        <option value="fill_blank">Fill in the Blank</option>
+                        <option value="matching">Matching</option>
+                        <option value="essay">Essay</option>
+                    </select>
+                </div>
+                
                 <div class="time-limit-container">
                     <label>Time Limit for this Question (seconds):</label>
                     <input type="number" name="time_limit_${questionIndex}" value="30" min="10" max="300" required>
                 </div>
 
+                <div class="question-fields" id="question_fields_${questionIndex}">
+                    <!-- Question type specific fields will be inserted here -->
+                </div>
+            `;
+            
+            container.appendChild(newQuestionBlock);
+            
+            // Initialize with multiple choice fields
+            updateQuestionFields(newQuestionBlock.querySelector('select[name="question_types[]"]'), questionIndex);
+        }
+
+        function updateQuestionFields(selectElement, questionIndex) {
+            const questionType = selectElement.value;
+            const fieldsContainer = document.getElementById(`question_fields_${questionIndex}`);
+            
+            let fieldsHTML = '';
+            
+            switch(questionType) {
+                case 'multiple_choice':
+                    fieldsHTML = `
                 <div class="options-container">
                     <label>Options:</label>
                     <div class="option-input">
@@ -456,9 +758,436 @@ body {
                     </div>
                 </div>
             `;
-            container.appendChild(newQuestionBlock);
-        });
+                    break;
+                    
+                case 'true_false':
+                    fieldsHTML = `
+                        <div class="tf-container">
+                            <label>Correct Answer:</label>
+                            <div class="tf-options">
+                                <label>
+                                    <input type="radio" name="tf_correct_answer_${questionIndex}" value="true" required checked> True
+                                </label>
+                                <label>
+                                    <input type="radio" name="tf_correct_answer_${questionIndex}" value="false" required> False
+                                </label>
+                            </div>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'short_answer':
+                    fieldsHTML = `
+                        <div class="short-answer-container">
+                            <label>Correct Answer:</label>
+                            <input type="text" name="short_answer_${questionIndex}" required>
+                            
+                            <div class="feature-toggle">
+                                <label>
+                                    <input type="checkbox" name="ai_detection_${questionIndex}"> 
+                                    Enable AI Detection & Anti-Plagiarism
+                                </label>
+                            </div>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'fill_blank':
+                    fieldsHTML = `
+                        <div class="fill-blank-container">
+                            <p class="tip">Use underscores (_) in your question to indicate blanks</p>
+                            <label>Answers for Blanks (in order):</label>
+                            <div class="blanks-container" id="blanks_container_${questionIndex}">
+                                <div class="blank-input">
+                                    <input type="text" name="fill_blank_answers_${questionIndex}[]" placeholder="Answer 1" required>
+                                    <button type="button" class="add-blank-btn" onclick="addBlankField(${questionIndex})">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'matching':
+                    fieldsHTML = `
+                        <div class="matching-container">
+                            <div class="matching-columns">
+                                <div class="matching-left">
+                                    <label>Left Column:</label>
+                                    <div id="matching_left_${questionIndex}">
+                                        <div class="matching-item">
+                                            <input type="text" name="matching_left_${questionIndex}[]" placeholder="Item 1" required>
+                                        </div>
+                                        <div class="matching-item">
+                                            <input type="text" name="matching_left_${questionIndex}[]" placeholder="Item 2" required>
+                                        </div>
+                                    </div>
+                                    <button type="button" class="add-matching-btn" onclick="addMatchingItem('left', ${questionIndex})">
+                                        <i class="fas fa-plus"></i> Add Item
+                                    </button>
+                                </div>
+                                
+                                <div class="matching-right">
+                                    <label>Right Column:</label>
+                                    <div id="matching_right_${questionIndex}">
+                                        <div class="matching-item">
+                                            <input type="text" name="matching_right_${questionIndex}[]" placeholder="Match 1" required>
+                                            <select name="matching_pairs_${questionIndex}[]">
+                                                <option value="0">Item 1</option>
+                                                <option value="1">Item 2</option>
+                                            </select>
+                                        </div>
+                                        <div class="matching-item">
+                                            <input type="text" name="matching_right_${questionIndex}[]" placeholder="Match 2" required>
+                                            <select name="matching_pairs_${questionIndex}[]">
+                                                <option value="0">Item 1</option>
+                                                <option value="1" selected>Item 2</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <button type="button" class="add-matching-btn" onclick="addMatchingItem('right', ${questionIndex})">
+                                        <i class="fas fa-plus"></i> Add Item
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'essay':
+                    fieldsHTML = `
+                        <div class="essay-container">
+                            <div class="feature-toggles">
+                                <div class="feature-toggle">
+                                    <label>
+                                        <input type="checkbox" name="essay_ai_detection_${questionIndex}"> 
+                                        Enable AI Detection
+                                    </label>
+                                </div>
+                                <div class="feature-toggle">
+                                    <label>
+                                        <input type="checkbox" name="essay_plagiarism_${questionIndex}"> 
+                                        Enable Anti-Plagiarism
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="word-limit">
+                                <label>Word Limit:</label>
+                                <input type="number" name="essay_word_limit_${questionIndex}" value="500" min="50" max="2000">
+                            </div>
+                        </div>
+                    `;
+                    break;
+            }
+            
+            fieldsContainer.innerHTML = fieldsHTML;
+        }
 
+        function addBlankField(questionIndex) {
+            const container = document.getElementById(`blanks_container_${questionIndex}`);
+            const blankCount = container.querySelectorAll('.blank-input').length + 1;
+            
+            const newBlank = document.createElement('div');
+            newBlank.className = 'blank-input';
+            newBlank.innerHTML = `
+                <input type="text" name="fill_blank_answers_${questionIndex}[]" placeholder="Answer ${blankCount}" required>
+                <button type="button" class="remove-blank-btn" onclick="this.parentNode.remove()">
+                    <i class="fas fa-minus"></i>
+                </button>
+            `;
+            
+            container.appendChild(newBlank);
+        }
+
+        function addMatchingItem(side, questionIndex) {
+            const container = document.getElementById(`matching_${side}_${questionIndex}`);
+            const itemCount = container.querySelectorAll('.matching-item').length;
+            
+            const newItem = document.createElement('div');
+            newItem.className = 'matching-item';
+            
+            if (side === 'left') {
+                newItem.innerHTML = `
+                    <input type="text" name="matching_left_${questionIndex}[]" placeholder="Item ${itemCount + 1}" required>
+                    <button type="button" class="remove-matching-btn" onclick="removeMatchingItem(this, 'left', ${questionIndex})">
+                        <i class="fas fa-minus"></i>
+                    </button>
+                `;
+            } else {
+                // Create options for the select element
+                let options = '';
+                const leftItems = document.querySelectorAll(`#matching_left_${questionIndex} .matching-item`);
+                leftItems.forEach((item, idx) => {
+                    options += `<option value="${idx}">Item ${idx + 1}</option>`;
+                });
+                
+                newItem.innerHTML = `
+                    <input type="text" name="matching_right_${questionIndex}[]" placeholder="Match ${itemCount + 1}" required>
+                    <select name="matching_pairs_${questionIndex}[]">
+                        ${options}
+                    </select>
+                    <button type="button" class="remove-matching-btn" onclick="removeMatchingItem(this, 'right', ${questionIndex})">
+                        <i class="fas fa-minus"></i>
+                    </button>
+                `;
+            }
+            
+            container.appendChild(newItem);
+            
+            // If we added a left item, we need to update all right selects
+            if (side === 'left') {
+                updateMatchingSelects(questionIndex);
+            }
+        }
+
+        function removeMatchingItem(element, side, questionIndex) {
+            // Get the index of the item being removed
+            const container = document.getElementById(`matching_${side}_${questionIndex}`);
+            const items = container.querySelectorAll('.matching-item');
+            if (items.length <= 2) {
+                alert('You need at least 2 matching items');
+                return;
+            }
+            
+            element.closest('.matching-item').remove();
+            
+            // If we removed a left item, update all right selects
+            if (side === 'left') {
+                updateMatchingSelects(questionIndex);
+            }
+        }
+
+        function updateMatchingSelects(questionIndex) {
+            const leftItems = document.querySelectorAll(`#matching_left_${questionIndex} .matching-item`);
+            const rightSelects = document.querySelectorAll(`#matching_right_${questionIndex} select`);
+            
+            rightSelects.forEach(select => {
+                const currentValue = select.value;
+                select.innerHTML = '';
+                
+                leftItems.forEach((item, idx) => {
+                    const option = document.createElement('option');
+                    option.value = idx;
+                    option.textContent = `Item ${idx + 1}`;
+                    select.appendChild(option);
+                });
+                
+                // Try to preserve the selected value if it still exists
+                if (currentValue < leftItems.length) {
+                    select.value = currentValue;
+                }
+            });
+        }
+
+        // Updated fetchExistingQuestions function to handle new question types
+        async function fetchExistingQuestions(quizId) {
+            try {
+                const response = await fetch(`/nimda/get_quiz_questions/${quizId}`);
+                const data = await response.json();
+
+                // Reset questions container
+                const container = document.getElementById('questionsContainer');
+                container.innerHTML = '';
+                
+                // Set author and grade level if available
+                if (data.author) {
+                    document.getElementById('edit_author_first_name').value = data.author.first_name || '';
+                    document.getElementById('edit_author_last_name').value = data.author.last_name || '';
+                }
+                
+                if (data.grade_level) {
+                    document.getElementById('edit_grade_level').value = data.grade_level;
+                }
+
+                // Populate existing questions if any
+                if (data.questions && data.questions.length > 0) {
+                    data.questions.forEach((question, index) => {
+                        const newQuestionBlock = document.createElement('div');
+                        newQuestionBlock.className = 'question-block';
+                        newQuestionBlock.dataset.questionIndex = index;
+                        
+                        // Create the basic structure
+                        newQuestionBlock.innerHTML = `
+                            <span class="remove-question-btn" onclick="removeQuestion(this)">
+                                <i class="fas fa-trash"></i>
+                            </span>
+                            <label>Question ${index + 1}:</label>
+                            <textarea name="questions[]" required class="question-input" rows="3">${question.question}</textarea>
+                            <input type="hidden" name="question_index[]" value="${index}">
+                            
+                            <div class="question-type-selector">
+                                <label>Question Type:</label>
+                                <select name="question_types[]" onchange="updateQuestionFields(this, ${index})" required>
+                                    <option value="multiple_choice" ${question.question_type === 'multiple_choice' ? 'selected' : ''}>Multiple Choice</option>
+                                    <option value="true_false" ${question.question_type === 'true_false' ? 'selected' : ''}>True or False</option>
+                                    <option value="short_answer" ${question.question_type === 'short_answer' ? 'selected' : ''}>Short Answer</option>
+                                    <option value="fill_blank" ${question.question_type === 'fill_blank' ? 'selected' : ''}>Fill in the Blank</option>
+                                    <option value="matching" ${question.question_type === 'matching' ? 'selected' : ''}>Matching</option>
+                                    <option value="essay" ${question.question_type === 'essay' ? 'selected' : ''}>Essay</option>
+                                </select>
+                            </div>
+                            
+                            <div class="time-limit-container">
+                                <label>Time Limit for this Question (seconds):</label>
+                                <input type="number" name="time_limit_${index}" value="${question.time_per_question || 30}" min="10" max="300" required>
+                            </div>
+
+                            <div class="question-fields" id="question_fields_${index}">
+                                <!-- Question type specific fields will be inserted here -->
+                            </div>
+                        `;
+                        
+                        container.appendChild(newQuestionBlock);
+                        
+                        // Initialize fields based on question type
+                        const selectElement = newQuestionBlock.querySelector('select[name="question_types[]"]');
+                        updateQuestionFields(selectElement, index);
+                        
+                        // Populate the type-specific fields with existing data
+                        const fieldsContainer = document.getElementById(`question_fields_${index}`);
+                        
+                        if (question.question_type === 'multiple_choice' && question.options) {
+                            const optionInputs = fieldsContainer.querySelectorAll(`input[name="options_${index}[]"]`);
+                            const radioInputs = fieldsContainer.querySelectorAll(`input[name="correct_answer_${index}"]`);
+                            
+                            question.options.forEach((option, optIdx) => {
+                                if (optionInputs[optIdx]) {
+                                    optionInputs[optIdx].value = option;
+                                }
+                            });
+                            
+                            if (radioInputs[question.correct_answer]) {
+                                radioInputs[question.correct_answer].checked = true;
+                            }
+                        }
+                        else if (question.question_type === 'true_false') {
+                            const tfInputs = fieldsContainer.querySelectorAll(`input[name="tf_correct_answer_${index}"]`);
+                            tfInputs.forEach(input => {
+                                if (input.value === question.correct_answer) {
+                                    input.checked = true;
+                                }
+                            });
+                        }
+                        else if (question.question_type === 'short_answer') {
+                            const answerInput = fieldsContainer.querySelector(`input[name="short_answer_${index}"]`);
+                            const aiDetectionInput = fieldsContainer.querySelector(`input[name="ai_detection_${index}"]`);
+                            
+                            if (answerInput) answerInput.value = question.correct_answer || '';
+                            if (aiDetectionInput) aiDetectionInput.checked = question.ai_detection || false;
+                        }
+                        else if (question.question_type === 'fill_blank' && question.blanks) {
+                            const blanksContainer = fieldsContainer.querySelector(`#blanks_container_${index}`);
+                            blanksContainer.innerHTML = '';
+                            
+                            question.blanks.forEach((blank, blankIdx) => {
+                                const blankDiv = document.createElement('div');
+                                blankDiv.className = 'blank-input';
+                                
+                                if (blankIdx === 0) {
+                                    blankDiv.innerHTML = `
+                                        <input type="text" name="fill_blank_answers_${index}[]" value="${blank}" placeholder="Answer 1" required>
+                                        <button type="button" class="add-blank-btn" onclick="addBlankField(${index})">
+                                            <i class="fas fa-plus"></i>
+                                        </button>
+                                    `;
+                } else {
+                                    blankDiv.innerHTML = `
+                                        <input type="text" name="fill_blank_answers_${index}[]" value="${blank}" placeholder="Answer ${blankIdx + 1}" required>
+                                        <button type="button" class="remove-blank-btn" onclick="this.parentNode.remove()">
+                                            <i class="fas fa-minus"></i>
+                                        </button>
+                                    `;
+                                }
+                                
+                                blanksContainer.appendChild(blankDiv);
+                            });
+                        }
+                        else if (question.question_type === 'matching' && question.left_items && question.right_items) {
+                            const leftContainer = fieldsContainer.querySelector(`#matching_left_${index}`);
+                            const rightContainer = fieldsContainer.querySelector(`#matching_right_${index}`);
+                            
+                            leftContainer.innerHTML = '';
+                            rightContainer.innerHTML = '';
+                            
+                            question.left_items.forEach((item, itemIdx) => {
+                                const itemDiv = document.createElement('div');
+                                itemDiv.className = 'matching-item';
+                                
+                                if (itemIdx < 2) {
+                                    itemDiv.innerHTML = `
+                                        <input type="text" name="matching_left_${index}[]" value="${item}" placeholder="Item ${itemIdx + 1}" required>
+                                    `;
+                                } else {
+                                    itemDiv.innerHTML = `
+                                        <input type="text" name="matching_left_${index}[]" value="${item}" placeholder="Item ${itemIdx + 1}" required>
+                                        <button type="button" class="remove-matching-btn" onclick="removeMatchingItem(this, 'left', ${index})">
+                                            <i class="fas fa-minus"></i>
+                                        </button>
+                                    `;
+                                }
+                                
+                                leftContainer.appendChild(itemDiv);
+                            });
+                            
+                            // Create right items with selects for matching
+                            question.right_items.forEach((item, itemIdx) => {
+                                const itemDiv = document.createElement('div');
+                                itemDiv.className = 'matching-item';
+                                
+                                let options = '';
+                                question.left_items.forEach((leftItem, leftIdx) => {
+                                    const selected = question.correct_matches && question.correct_matches[itemIdx] === leftIdx ? 'selected' : '';
+                                    options += `<option value="${leftIdx}" ${selected}>Item ${leftIdx + 1}</option>`;
+                                });
+                                
+                                if (itemIdx < 2) {
+                                    itemDiv.innerHTML = `
+                                        <input type="text" name="matching_right_${index}[]" value="${item}" placeholder="Match ${itemIdx + 1}" required>
+                                        <select name="matching_pairs_${index}[]">
+                                            ${options}
+                                        </select>
+                                    `;
+                                } else {
+                                    itemDiv.innerHTML = `
+                                        <input type="text" name="matching_right_${index}[]" value="${item}" placeholder="Match ${itemIdx + 1}" required>
+                                        <select name="matching_pairs_${index}[]">
+                                            ${options}
+                                        </select>
+                                        <button type="button" class="remove-matching-btn" onclick="removeMatchingItem(this, 'right', ${index})">
+                                            <i class="fas fa-minus"></i>
+                                        </button>
+                                    `;
+                                }
+                                
+                                rightContainer.appendChild(itemDiv);
+                            });
+                        }
+                        else if (question.question_type === 'essay') {
+                            const aiDetectionInput = fieldsContainer.querySelector(`input[name="essay_ai_detection_${index}"]`);
+                            const plagiarismInput = fieldsContainer.querySelector(`input[name="essay_plagiarism_${index}"]`);
+                            const wordLimitInput = fieldsContainer.querySelector(`input[name="essay_word_limit_${index}"]`);
+                            
+                            if (aiDetectionInput) aiDetectionInput.checked = question.ai_detection || false;
+                            if (plagiarismInput) plagiarismInput.checked = question.anti_plagiarism || false;
+                            if (wordLimitInput) wordLimitInput.value = question.word_limit || 500;
+                        }
+                    });
+                } else {
+                    // If no questions, add a default question block
+                    addNewQuestion();
+                }
+
+                // Show the popup
+                showPopup('quizQuestionPopup');
+            } catch (error) {
+                console.error('Error fetching quiz questions:', error);
+                alert('Failed to load quiz questions. Please try again.');
+            }
+        }
+
+        // Reset the old removeQuestion function to work with the new structure
         function removeQuestion(element) {
             const container = document.getElementById('questionsContainer');
             if (container.children.length > 1) {
@@ -476,127 +1205,22 @@ body {
 
                     // Update the data attribute
                     questionBlock.dataset.questionIndex = idx;
-
-                    // Update the radio button names and option input names
-                    const radioButtons = questionBlock.querySelectorAll('input[type="radio"]');
-                    radioButtons.forEach(radio => {
-                        radio.name = `correct_answer_${idx}`;
-                    });
-
-                    const optionInputs = questionBlock.querySelectorAll('.option-input input[type="text"]');
-                    optionInputs.forEach(input => {
-                        input.name = `options_${idx}[]`;
-                    });
+                    
+                    // Update input names that contain the index
+                    const timeInput = questionBlock.querySelector(`input[name^="time_limit_"]`);
+                    if (timeInput) timeInput.name = `time_limit_${idx}`;
+                    
+                    // Update question fields container id
+                    const fieldsContainer = questionBlock.querySelector('.question-fields');
+                    if (fieldsContainer) fieldsContainer.id = `question_fields_${idx}`;
+                    
+                    // Update the fields based on question type
+                    const typeSelect = questionBlock.querySelector('select[name="question_types[]"]');
+                    if (typeSelect) {
+                        typeSelect.setAttribute('onchange', `updateQuestionFields(this, ${idx})`);
+                        updateQuestionFields(typeSelect, idx);
+                    }
                 });
-            }
-        }
-
-        // Handle edit buttons for quiz questions
-        document.querySelectorAll('.edit-btn').forEach(button => {
-            button.addEventListener('click', function() {
-                const quizId = this.getAttribute('data-quiz-id');
-                const quizTitle = this.getAttribute('data-quiz-title');
-                
-                // Set quiz ID and title in popup
-                document.getElementById('quizQuestionQuizId').value = quizId;
-                document.getElementById('quizQuestionPopupTitle').textContent = `Create/Edit Questions for "${quizTitle}"`;
-
-                // Check if quiz already has questions and load them
-                fetchExistingQuestions(quizId);
-            });
-        });
-
-        async function fetchExistingQuestions(quizId) {
-            try {
-                const response = await fetch(`/nimda/get_quiz_questions/${quizId}`);
-                const data = await response.json();
-
-                // Reset questions container
-                const container = document.getElementById('questionsContainer');
-                container.innerHTML = '';
-
-                // Populate existing questions if any
-                if (data.questions && data.questions.length > 0) {
-                    data.questions.forEach((question, index) => {
-                        const newQuestionBlock = document.createElement('div');
-                        newQuestionBlock.className = 'question-block';
-                        newQuestionBlock.dataset.questionIndex = index;
-                        newQuestionBlock.innerHTML = `
-                            <span class="remove-question-btn" onclick="removeQuestion(this)">
-                                <i class="fas fa-trash"></i>
-                            </span>
-                            <label>Question ${index + 1}:</label>
-                            <textarea name="questions[]" required class="question-input" rows="3">${question.question}</textarea>
-                            <input type="hidden" name="question_index[]" value="${index}">
-                            
-                            <div class="time-limit-container">
-                                <label>Time Limit for this Question (seconds):</label>
-                                <input type="number" name="time_limit_${index}" value="${question.time_limit || 30}" min="10" max="300" required>
-                            </div>
-
-                            <div class="options-container">
-                                <label>Options:</label>
-                                ${question.options.map((option, optionIndex) => `
-                                    <div class="option-input">
-                                        <input type="radio" name="correct_answer_${index}"
-                                               value="${optionIndex}"
-                                               ${question.correct_answer === optionIndex ? 'checked' : ''}
-                                               required>
-                                        <input type="text" name="options_${index}[]"
-                                               placeholder="Option ${String.fromCharCode(65 + optionIndex)}"
-                                               value="${option}" required>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        `;
-                        container.appendChild(newQuestionBlock);
-                    });
-                } else {
-                    // If no questions, add a default question block
-                    const defaultQuestionBlock = document.createElement('div');
-                    defaultQuestionBlock.className = 'question-block';
-                    defaultQuestionBlock.dataset.questionIndex = 0;
-                    defaultQuestionBlock.innerHTML = `
-                        <span class="remove-question-btn" onclick="removeQuestion(this)">
-                            <i class="fas fa-trash"></i>
-                        </span>
-                        <label>Question 1:</label>
-                        <textarea name="questions[]" required class="question-input" rows="3"></textarea>
-                        <input type="hidden" name="question_index[]" value="0">
-                        
-                        <div class="time-limit-container">
-                            <label>Time Limit for this Question (seconds):</label>
-                            <input type="number" name="time_limit_0" value="30" min="10" max="300" required>
-                        </div>
-
-                        <div class="options-container">
-                            <label>Options:</label>
-                            <div class="option-input">
-                                <input type="radio" name="correct_answer_0" value="0" required checked>
-                                <input type="text" name="options_0[]" placeholder="Option A" required>
-                            </div>
-                            <div class="option-input">
-                                <input type="radio" name="correct_answer_0" value="1" required>
-                                <input type="text" name="options_0[]" placeholder="Option B" required>
-                            </div>
-                            <div class="option-input">
-                                <input type="radio" name="correct_answer_0" value="2" required>
-                                <input type="text" name="options_0[]" placeholder="Option C" required>
-                            </div>
-                            <div class="option-input">
-                                <input type="radio" name="correct_answer_0" value="3" required>
-                                <input type="text" name="options_0[]" placeholder="Option D" required>
-                            </div>
-                        </div>
-                    `;
-                    container.appendChild(defaultQuestionBlock);
-                }
-
-                // Show the popup
-                showPopup('quizQuestionPopup');
-            } catch (error) {
-                console.error('Error fetching quiz questions:', error);
-                alert('Failed to load quiz questions. Please try again.');
             }
         }
 
@@ -657,6 +1281,23 @@ body {
             }
         });
 
+        // Event listeners for edit buttons
+        document.querySelectorAll('.edit-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const quizId = this.getAttribute('data-quiz-id');
+                const quizTitle = this.getAttribute('data-quiz-title');
+                
+                // Set the quiz id in the hidden field
+                document.getElementById('quizQuestionQuizId').value = quizId;
+                
+                // Set the popup title
+                document.getElementById('quizQuestionPopupTitle').textContent = `Edit Questions for ${quizTitle}`;
+                
+                // Fetch and display existing questions
+                fetchExistingQuestions(quizId);
+            });
+        });
+
         // Existing Delete Quiz Functionality
         let quizToDelete = null;
         document.querySelectorAll('.delete-btn').forEach(button => {
@@ -688,37 +1329,48 @@ body {
             quizToDelete = null;
         });
 
-        function addQuestionTemplate() {
-            const questionNumber = document.querySelectorAll('.question-block').length + 1;
-            const questionTemplate = `
-                <div class="question-block">
-                    <i class="fas fa-times-circle remove-question-btn" onclick="removeQuestion(this)"></i>
-                    <h4>Question ${questionNumber}</h4>
-                    <textarea name="question_text[]" placeholder="Enter your question here..." required></textarea>
-                    
-                    <div class="options-container">
-                        <div class="option-input">
-                            <input type="radio" name="correct_answer_${questionNumber-1}" value="0" required>
-                            <input type="text" name="option_0_${questionNumber-1}" placeholder="Option 1" required>
-                        </div>
-                        <div class="option-input">
-                            <input type="radio" name="correct_answer_${questionNumber-1}" value="1" required>
-                            <input type="text" name="option_1_${questionNumber-1}" placeholder="Option 2" required>
-                        </div>
-                        <div class="option-input">
-                            <input type="radio" name="correct_answer_${questionNumber-1}" value="2" required>
-                            <input type="text" name="option_2_${questionNumber-1}" placeholder="Option 3" required>
-                        </div>
-                        <div class="option-input">
-                            <input type="radio" name="correct_answer_${questionNumber-1}" value="3" required>
-                            <input type="text" name="option_3_${questionNumber-1}" placeholder="Option 4" required>
-                        </div>
-                    </div>
-                </div>
-            `;
+        // Reset Quiz Functionality
+        let quizToReset = null;
+        let quizTitle = null;
+        
+        document.querySelectorAll('.reset-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                quizToReset = this.getAttribute('data-quiz-id');
+                quizTitle = this.getAttribute('data-quiz-title');
+                showPopup('resetPopup');
+            });
+        });
+        
+        document.getElementById('confirmReset').addEventListener('click', async function() {
+            if (!quizToReset) return;
             
-            document.getElementById('questionsContainer').insertAdjacentHTML('beforeend', questionTemplate);
-        }
+            try {
+                const response = await fetch(`/nimda/reset_quiz/${quizToReset}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        quiz_id: quizToReset,
+                        quiz_title: quizTitle
+                    })
+                });
+                
+                if (response.ok) {
+                    closePopup('resetPopup');
+                    // Show success message
+                    alert(`Quiz "${quizTitle}" has been reset. Students can now retake it.`);
+                } else {
+                    throw new Error('Failed to reset quiz');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to reset quiz. Please try again.');
+            }
+            
+            quizToReset = null;
+            quizTitle = null;
+        });
     </script>
 </body>
 </html>
