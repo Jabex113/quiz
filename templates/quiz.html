@@ -646,6 +646,10 @@
 
     <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // Debug output to see if we're loading correctly
+        console.log("Quiz page loaded. Initializing...");
+        console.log("Total questions:", {{ quiz.questions|length }});
+        
         try {
             // Initialize variables
             const form = document.getElementById('quiz-form');
@@ -656,6 +660,18 @@
             const questionContainers = document.querySelectorAll('.quiz-question-container');
             const progressDots = document.querySelectorAll('.progress-dot');
             const totalQuestions = {{ quiz.questions|length }};
+            
+            // Debug the questions
+            console.log("Question containers found:", questionContainers.length);
+            console.log("Progress dots found:", progressDots.length);
+            
+            // Make sure we can see at least the first question
+            if (questionContainers.length > 0) {
+                questionContainers[0].style.display = 'block';
+                console.log("First question should be visible now");
+            } else {
+                console.error("No question containers found!");
+            }
             
             // Webcam monitoring variables - declare these at the top
             let webcamStream = null;
@@ -794,32 +810,53 @@
             
             // Navigation functions
             function showQuestion(index) {
-                // Hide all questions
-                questionContainers.forEach(container => {
-                    container.style.display = 'none';
-                });
-                
-                // Update progress dots
-                progressDots.forEach((dot, i) => {
-                    if (i === index) {
-                        dot.classList.add('active');
-                    } else {
-                        dot.classList.remove('active');
+                try {
+                    console.log("Attempting to show question:", index);
+                    
+                    // Validate the index
+                    if (index < 0 || index >= totalQuestions) {
+                        console.error("Invalid question index:", index);
+                        return;
                     }
-                });
-                
-                // Show the selected question
-                const selectedQuestion = document.getElementById(`question-${index}`);
-                if (selectedQuestion) {
-                    selectedQuestion.style.display = 'block';
-                    currentQuestionIndex = index;
-                    currentQuestionInput.value = index;
                     
-                    // Start timer for this question
-                    startQuestionTimer(index);
+                    // Hide all questions
+                    questionContainers.forEach((container, i) => {
+                        container.style.display = 'none';
+                        console.log("Hidden question container", i);
+                    });
                     
-                    // Update navigation buttons
-                    updateNavigationButtons();
+                    // Update progress dots
+                    progressDots.forEach((dot, i) => {
+                        if (i === index) {
+                            dot.classList.add('active');
+                        } else {
+                            dot.classList.remove('active');
+                        }
+                    });
+                    
+                    // Show the selected question
+                    const selectedQuestion = document.getElementById(`question-${index}`);
+                    if (selectedQuestion) {
+                        selectedQuestion.style.display = 'block';
+                        console.log("Showing question container", index);
+                        currentQuestionIndex = index;
+                        currentQuestionInput.value = index;
+                        
+                        // Start timer for this question
+                        startQuestionTimer(index);
+                        
+                        // Update navigation buttons
+                        updateNavigationButtons();
+                    } else {
+                        console.error("Question container not found for index:", index);
+                        // Fallback: try to show any container
+                        if (questionContainers.length > index) {
+                            questionContainers[index].style.display = 'block';
+                            console.log("Fallback: showing question container by index", index);
+                        }
+                    }
+                } catch (error) {
+                    console.error("Error showing question:", error);
                 }
             }
             
@@ -837,16 +874,40 @@
             
             // Event listeners for navigation
             prevBtn.addEventListener('click', () => {
+                console.log("Previous button clicked");
                 if (currentQuestionIndex > 0) {
                     showQuestion(currentQuestionIndex - 1);
                 }
             });
             
             nextBtn.addEventListener('click', () => {
+                console.log("Next button clicked");
                 if (currentQuestionIndex < totalQuestions - 1) {
                     showQuestion(currentQuestionIndex + 1);
                 }
             });
+            
+            // Also add direct click to handle any synchronization issues
+            document.querySelectorAll('.quiz-nav-btn').forEach(btn => {
+                btn.style.backgroundColor = '#4f46e5';  // Ensure buttons are visible
+                btn.style.color = 'white';
+                btn.style.fontWeight = 'bold';
+                console.log("Enhancing button:", btn.textContent);
+            });
+            
+            nextBtn.onclick = function() {
+                console.log("Direct Next click handler");
+                if (currentQuestionIndex < totalQuestions - 1) {
+                    showQuestion(currentQuestionIndex + 1);
+                }
+            };
+            
+            prevBtn.onclick = function() {
+                console.log("Direct Previous click handler");
+                if (currentQuestionIndex > 0) {
+                    showQuestion(currentQuestionIndex - 1);
+                }
+            };
             
             // Progress dots navigation
             progressDots.forEach((dot, index) => {

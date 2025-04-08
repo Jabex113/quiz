@@ -764,7 +764,12 @@ def check_eyes():
         faces = face_cascade.detectMultiScale(gray, 1.3, 5)
         
         if len(faces) == 0:
-            return jsonify({'eyesOpen': False, 'reason': 'No face detected'})
+            return jsonify({
+                'eyesOpen': False, 
+                'reason': 'No face detected',
+                'warning': True,
+                'message': 'Face not visible - please stay in frame'
+            })
         
         # Check for eyes in the face
         eyes_detected = False
@@ -775,10 +780,22 @@ def check_eyes():
                 eyes_detected = True
                 break
         
-        return jsonify({'eyesOpen': eyes_detected})
+        if not eyes_detected:
+            return jsonify({
+                'eyesOpen': False,
+                'reason': 'Eyes not detected',
+                'warning': True,
+                'message': 'Eyes not visible - please face the screen'
+            })
+        
+        return jsonify({
+            'eyesOpen': True,
+            'reason': 'Eyes detected'
+        })
     
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        print(f"Error in eye detection: {str(e)}")
+        return jsonify({'error': str(e), 'eyesOpen': True}), 200  # Return 200 to avoid interrupting quiz
 
 @app.route('/logout')
 def logout():
