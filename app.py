@@ -405,6 +405,19 @@ def start_quiz(quiz_id):
     quizzes = load_quizzes()
     quiz = next((q for q in quizzes if q['id'] == quiz_id), None)
     
+    # Debug: print quiz details
+    print("\n===== QUIZ DEBUG INFO =====")
+    print(f"Quiz ID: {quiz_id}")
+    print(f"Quiz found: {quiz is not None}")
+    if quiz:
+        print(f"Quiz title: {quiz.get('title', 'No title')}")
+        print(f"Questions count: {len(quiz.get('questions', []))}")
+        if 'questions' in quiz and len(quiz['questions']) > 0:
+            print(f"First question: {quiz['questions'][0].get('question', 'No question text')}")
+        else:
+            print("No questions found in quiz")
+    print("===========================\n")
+    
     if not quiz or 'questions' not in quiz:
         flash('Quiz not found or no questions available', 'error')
         return redirect(url_for('dashboard'))
@@ -896,10 +909,20 @@ def admin_save_quiz_questions():
     if 'admin_logged_in' not in session:
         return jsonify({"error": "Unauthorized"}), 401
 
+    # Debug logging
+    print("\n===== SAVE QUIZ QUESTIONS DEBUG =====")
+    
     quiz_id = request.form.get('quiz_id')
+    print(f"Quiz ID: {quiz_id}")
+    
     questions_text = request.form.getlist('questions[]')
+    print(f"Number of questions: {len(questions_text)}")
+    
     question_indices = request.form.getlist('question_index[]')
-    question_types = request.form.getlist('question_types[]')  # New field for question types
+    print(f"Question indices: {question_indices}")
+    
+    question_types = request.form.getlist('question_types[]')
+    print(f"Question types: {question_types}")
     
     time_per_question = []
     total_time = 0
@@ -913,10 +936,12 @@ def admin_save_quiz_questions():
             break
     
     if not quiz:
+        print("ERROR: Quiz not found!")
         return jsonify({"error": "Quiz not found"}), 404
     
     # Initialize questions array
     quiz['questions'] = []
+    print(f"Reset quiz questions array to empty")
     
     # Process each question based on its type
     for idx, q_idx in enumerate(question_indices):
@@ -924,6 +949,9 @@ def admin_save_quiz_questions():
         question_text = questions_text[idx]
         question_type = question_types[idx]
         time_limit = int(request.form.get(f'time_limit_{q_idx}', 30))
+        
+        print(f"\nProcessing question {idx+1}: {question_text[:30]}...")
+        print(f"  Type: {question_type}, Time limit: {time_limit}")
         
         # Common question attributes
         question_data = {
@@ -938,19 +966,23 @@ def admin_save_quiz_questions():
             correct_answer = int(request.form.get(f'correct_answer_{q_idx}', 0))
             question_data["options"] = options
             question_data["correct_answer"] = correct_answer
+            print(f"  Multiple choice: {len(options)} options, correct: {correct_answer}")
             
         elif question_type == "true_false":
             correct_answer = request.form.get(f'tf_correct_answer_{q_idx}')
             question_data["correct_answer"] = correct_answer
+            print(f"  True/False: correct: {correct_answer}")
             
         elif question_type == "short_answer":
             correct_answer = request.form.get(f'short_answer_{q_idx}')
             question_data["correct_answer"] = correct_answer
             question_data["ai_detection"] = request.form.get(f'ai_detection_{q_idx}') == 'on'
+            print(f"  Short answer: correct: {correct_answer}, AI detection: {question_data['ai_detection']}")
             
         elif question_type == "fill_blank":
             blanks = request.form.getlist(f'fill_blank_answers_{q_idx}[]')
             question_data["blanks"] = blanks
+            print(f"  Fill in blank: {len(blanks)} blanks")
             
         elif question_type == "matching":
             left_items = request.form.getlist(f'matching_left_{q_idx}[]')
@@ -963,11 +995,13 @@ def admin_save_quiz_questions():
             question_data["left_items"] = left_items
             question_data["right_items"] = right_items
             question_data["correct_matches"] = correct_matches
+            print(f"  Matching: {len(left_items)} left items, {len(right_items)} right items")
             
         elif question_type == "essay":
             question_data["ai_detection"] = request.form.get(f'essay_ai_detection_{q_idx}') == 'on'
             question_data["anti_plagiarism"] = request.form.get(f'essay_plagiarism_{q_idx}') == 'on'
             question_data["word_limit"] = int(request.form.get(f'essay_word_limit_{q_idx}', 500))
+            print(f"  Essay: word limit: {question_data['word_limit']}")
         
         # Add to questions list and track time
         quiz['questions'].append(question_data)
@@ -976,6 +1010,7 @@ def admin_save_quiz_questions():
     
     # Update total time for the quiz
     quiz['total_time'] = total_time
+    print(f"\nTotal quiz time: {total_time} seconds")
     
     # Add author information if provided
     author_first_name = request.form.get('author_first_name', '')
@@ -985,16 +1020,28 @@ def admin_save_quiz_questions():
             'first_name': author_first_name,
             'last_name': author_last_name
         }
+        print(f"Author: {author_first_name} {author_last_name}")
     
     # Add grade level if provided
     grade_level = request.form.get('grade_level', '')
     if grade_level:
         quiz['grade_level'] = grade_level
+        print(f"Grade level: {grade_level}")
     
     # Save updated quizzes
     save_quizzes(quizzes)
+    print(f"Saved quiz with {len(quiz['questions'])} questions")
+    print("===== END SAVE QUIZ QUESTIONS DEBUG =====\n")
     
-    return jsonify({"success": True})
+    # Verify the save worked by trying to load the file again
+    verification_quizzes = load_quizzes()
+    verification_quiz = next((q for q in verification_quizzes if q['id'] == quiz_id), None)
+    if verification_quiz and 'questions' in verification_quiz:
+        print(f"Verification: Quiz has {len(verification_quiz['questions'])} questions after saving")
+    else:
+        print("WARNING: Verification failed - quiz questions may not have been saved correctly")
+    
+    return jsonify({"success": True, "message": f"Saved {len(quiz['questions'])} questions"})
 
 @app.route('/get_categories/<strand>')
 def get_categories(strand):
@@ -1137,5 +1184,5 @@ def get_ai_response():
 init_files()
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5001))
+    port = int(os.environ.get('PORT', 5002))
     app.run(host='0.0.0.0', port=port, debug=True)

@@ -154,6 +154,42 @@
         "percentage": 0,
         "failed_reason": "Timeout",
         "timestamp": "2025-04-09T04:11:28.877389"
+      },
+      {
+        "quiz_id": "6477",
+        "quiz_title": "dada",
+        "score": 0.0,
+        "correct_count": 0,
+        "total_questions": 3,
+        "timestamp": "2025-04-10T12:04:25.705433",
+        "completed": true,
+        "needs_review": false,
+        "ai_content_detected": false,
+        "plagiarism_detected": false
+      },
+      {
+        "quiz_id": "6477",
+        "quiz_title": "dada",
+        "score": 0.0,
+        "correct_count": 0,
+        "total_questions": 3,
+        "timestamp": "2025-04-10T12:04:42.534138",
+        "completed": true,
+        "needs_review": false,
+        "ai_content_detected": false,
+        "plagiarism_detected": false
+      },
+      {
+        "quiz_id": "0547",
+        "quiz_title": "tes",
+        "score": 50.0,
+        "correct_count": 1,
+        "total_questions": 2,
+        "timestamp": "2025-04-10T12:32:09.988952",
+        "completed": true,
+        "needs_review": false,
+        "ai_content_detected": false,
+        "plagiarism_detected": false
       }
     ]
   }

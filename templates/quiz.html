@@ -450,11 +450,9 @@
     <div class="quiz-container">
         <div class="quiz-header">
             <h2 class="quiz-title">{{ quiz.title }}</h2>
-            <div class="quiz-timer" id="quiz-timer">
-                <i class="fas fa-clock"></i> <span id="timer">00:00</span>
-            </div>
+            <!-- Removing the global timer as requested -->
         </div>
-        
+
         <div class="quiz-info">
             <p>
                 <strong>Author:</strong> 
@@ -475,7 +473,6 @@
             {% for question in quiz.questions %}
             <div class="quiz-question-container" id="question-{{ loop.index0 }}" style="display: {% if loop.index0 == 0 %}block{% else %}none{% endif %};">
                 <div class="question-timer">
-                    <p>Time remaining: <span class="time-left" id="time-left-{{ loop.index0 }}">{{ question.time_per_question }}</span> seconds</p>
                     <div class="progress-bar">
                         <div class="progress-fill" id="progress-fill-{{ loop.index0 }}"></div>
                     </div>
@@ -488,12 +485,12 @@
                 <div class="quiz-content">
                     <!-- Multiple Choice Question -->
                     {% if question.question_type == 'multiple_choice' %}
-                    <div class="quiz-options">
+                    <div class="quiz-options" id="options-group-{{ loop.index0 }}">
                         {% for option in question.options %}
                         <div class="quiz-option">
-                            <input type="radio" id="q{{ loop.parent.index0 }}_option{{ loop.index0 }}" 
-                                   name="answer_{{ loop.parent.index0 }}" value="{{ loop.index0 }}">
-                            <label for="q{{ loop.parent.index0 }}_option{{ loop.index0 }}">{{ option }}</label>
+                            <input type="radio" id="q{{ loop.index0 }}_option{{ loop.index }}" 
+                                   name="answer_{{ loop.index0 }}" value="{{ loop.index0 }}">
+                            <label for="q{{ loop.index0 }}_option{{ loop.index }}">{{ option }}</label>
                         </div>
                         {% endfor %}
                     </div>
@@ -505,7 +502,7 @@
                             <input type="radio" id="q{{ loop.index0 }}_true" 
                                    name="answer_{{ loop.index0 }}" value="true">
                             <label for="q{{ loop.index0 }}_true">True</label>
-                        </div>
+                </div>
                         <div class="quiz-option">
                             <input type="radio" id="q{{ loop.index0 }}_false" 
                                    name="answer_{{ loop.index0 }}" value="false">
@@ -538,10 +535,10 @@
                             {% for part in question_parts %}
                                 {{ part }}
                                 {% if not loop.last %}
-                                <input type="text" name="blank_{{ loop.parent.index0 }}_{{ loop.index0 }}" 
+                                <input type="text" name="blank_{{ loop.index0 }}_{{ loop.index0 }}" 
                                        class="blank-input" required>
                                 {% endif %}
-                            {% endfor %}
+            {% endfor %}
                         </div>
                         <input type="hidden" name="blank_count_{{ loop.index0 }}" value="{{ question_parts|length - 1 }}">
                     </div>
@@ -556,24 +553,23 @@
                                     <span class="item-number">{{ loop.index }}.</span>
                                     <span class="item-text">{{ item }}</span>
                                 </div>
-                                {% endfor %}
-                            </div>
-                            
-                            <div class="matching-right">
-                                {% for item in question.right_items %}
-                                <div class="matching-item">
-                                    <div class="matching-select-container">
-                                        <select name="matching_{{ loop.parent.index0 }}_{{ loop.index0 }}" required>
-                                            <option value="">-- Select Match --</option>
-                                            {% for left_item in question.left_items %}
-                                            <option value="{{ loop.index0 }}">{{ loop.index }}. {{ left_item }}</option>
-                                            {% endfor %}
-                                        </select>
-                                    </div>
-                                    <span class="item-text">{{ item }}</span>
+                {% endfor %}
+            </div>
+                        
+                        <div class="matching-right">
+                            {% for item in question.right_items %}
+                            <div class="matching-item">
+                                <div class="matching-select-container">
+                                    <select name="matching_{{ loop.index0 }}_{{ loop.index0 }}" required>
+                                        <option value="">-- Select Match --</option>
+                                        {% for left_item in question.left_items %}
+                                        <option value="{{ loop.index0 }}">{{ loop.index }}. {{ left_item }}</option>
+                                        {% endfor %}
+                                    </select>
                                 </div>
-                                {% endfor %}
+                                <span class="item-text">{{ item }}</span>
                             </div>
+                            {% endfor %}
                         </div>
                     </div>
                     
@@ -612,7 +608,7 @@
                 </div>
             </div>
             {% endfor %}
-            
+
             <div class="quiz-navigation">
                 <button type="button" id="prev-btn" class="quiz-nav-btn" disabled>
                     <i class="fas fa-arrow-left"></i> Previous
@@ -635,234 +631,251 @@
         </form>
     </div>
 
-    <div class="webcam-container">
+    <!-- Webcam container removed - not using eye detection anymore -->
+    <!-- <div class="webcam-container">
         <video id="webcam" autoplay></video>
         <div class="monitoring-status" id="monitoring-status">
             <button id="webcam-permission-btn" style="background: none; border: none; color: white; cursor: pointer; width: 100%;">
                 Click to enable webcam
             </button>
-        </div>
     </div>
+    </div> -->
 
     <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Debug output to see if we're loading correctly
-        console.log("Quiz page loaded. Initializing...");
-        console.log("Total questions:", {{ quiz.questions|length }});
+        let currentQuestionIndex = 0;
+        let totalQuestions = {{ quiz.questions|length }};
+        let questionTimers = {};
+        // Removing global timer variable
+        let tabSwitchCount = 0;
+        const MAX_TAB_SWITCHES = 3;
+        let questionTimeStarted = {}; // Track if a question timer has already been started
         
-        try {
-            // Initialize variables
-            const form = document.getElementById('quiz-form');
-            const prevBtn = document.getElementById('prev-btn');
-            const nextBtn = document.getElementById('next-btn');
-            const submitBtn = document.getElementById('submit-btn');
-            const currentQuestionInput = document.getElementById('current_question');
-            const questionContainers = document.querySelectorAll('.quiz-question-container');
-            const progressDots = document.querySelectorAll('.progress-dot');
-            const totalQuestions = {{ quiz.questions|length }};
-            
-            // Debug the questions
-            console.log("Question containers found:", questionContainers.length);
-            console.log("Progress dots found:", progressDots.length);
-            
-            // Make sure we can see at least the first question
-            if (questionContainers.length > 0) {
-                questionContainers[0].style.display = 'block';
-                console.log("First question should be visible now");
-            } else {
-                console.error("No question containers found!");
-            }
-            
-            // Webcam monitoring variables - declare these at the top
-            let webcamStream = null;
-            let webcamInterval = null;
-            const webcamElement = document.getElementById('webcam');
-            const monitoringStatus = document.getElementById('monitoring-status');
-            const webcamPermissionBtn = document.getElementById('webcam-permission-btn');
-            
-            // Add webcam permission button listener
-            webcamPermissionBtn.addEventListener('click', function() {
-                setupWebcam();
+        // Function to handle radio button selection
+        function uncheckOthers(selectedRadio) {
+            // Get all radio buttons with the same name
+            const name = selectedRadio.name;
+            document.querySelectorAll(`input[name="${name}"]`).forEach(radio => {
+                // Uncheck all other radio buttons
+                if (radio !== selectedRadio) {
+                    radio.checked = false;
+                    const option = radio.closest('.quiz-option');
+                    if (option) option.classList.remove('selected');
+                }
             });
             
-            // Question timers
-            const questionTimers = [];
-            const questionStartTimes = [];
-            let currentQuestionIndex = 0;
-            let globalTimerInterval;
-            let globalTimeLeft = {{ quiz.total_time }} || 0;
-            let quizStartTime = Date.now();
+            // Make sure the selected radio is checked
+            selectedRadio.checked = true;
+            const option = selectedRadio.closest('.quiz-option');
+            if (option) option.classList.add('selected');
+        }
+        
+        // One-time function to set up radio button behavior
+        function setupRadioGroups() {
+            // Get all radio buttons
+            const radioButtons = document.querySelectorAll('input[type="radio"]');
             
-            // Initialize word counters for essays
-            const essays = document.querySelectorAll('textarea[data-word-limit]');
-            essays.forEach((essay, index) => {
-                essay.addEventListener('input', function() {
-                    updateWordCount(essay, index);
+            // Add click event listeners to each radio button
+            radioButtons.forEach(radio => {
+                radio.addEventListener('click', function() {
+                    uncheckOthers(this);
                 });
             });
             
-            function updateWordCount(essay, index) {
-                const wordCountElement = document.getElementById(`word-count-${index}`);
-                const wordLimit = parseInt(essay.getAttribute('data-word-limit'));
-                const text = essay.value.trim();
-                const wordCount = text ? text.split(/\s+/).length : 0;
+            // Make option divs trigger their radio buttons
+            document.querySelectorAll('.quiz-option').forEach(option => {
+                const radio = option.querySelector('input[type="radio"]');
+                if (!radio) return;
                 
-                wordCountElement.textContent = wordCount;
-                
-                if (wordCount > wordLimit) {
-                    wordCountElement.classList.add('exceeded');
+                option.addEventListener('click', function(e) {
+                    if (radio && !radio.disabled) {
+                        radio.checked = true;
+                        uncheckOthers(radio);
+                        this.classList.add('selected');
+                    }
+                });
+            });
+            
+            // Fix for multiple selection issue - ensure HTML5 radio button behavior
+            document.querySelectorAll('.quiz-options').forEach(optionsGroup => {
+                const radios = optionsGroup.querySelectorAll('input[type="radio"]');
+                if (radios.length > 0) {
+                    const groupName = radios[0].name;
+                    radios.forEach(radio => {
+                        // Ensure all radios in the same group have the same name
+                        radio.name = groupName;
+                    });
+                }
+            });
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // Fix radio button selection issues first
+            setupRadioGroups();
+            
+            // Initialize the first question as visible
+            if (totalQuestions > 0) {
+                const firstQuestion = document.getElementById('question-0');
+                if (firstQuestion) {
+                    firstQuestion.style.display = 'block';
+                    
+                    // Start timer for first question only if not already started
+                    if (!questionTimeStarted[0]) {
+                        startQuestionTimer(0);
+                        questionTimeStarted[0] = true;
+                    }
                 } else {
-                    wordCountElement.classList.remove('exceeded');
+                    const anyQuestion = document.querySelector('.quiz-question-container');
+                    if (anyQuestion) {
+                        anyQuestion.style.display = 'block';
+                        const index = parseInt(anyQuestion.id.split('-')[1]);
+                        if (!isNaN(index) && !questionTimeStarted[index]) {
+                            startQuestionTimer(index);
+                            questionTimeStarted[index] = true;
+                        }
+                    }
                 }
+            } else {
+                console.error("No questions found in the quiz!");
+                const quizContainer = document.querySelector('.quiz-container');
+                const noQuestionsMsg = document.createElement('div');
+                noQuestionsMsg.style.padding = '20px';
+                noQuestionsMsg.style.backgroundColor = '#f8d7da';
+                noQuestionsMsg.style.color = '#721c24';
+                noQuestionsMsg.style.borderRadius = '5px';
+                noQuestionsMsg.style.marginTop = '20px';
+                noQuestionsMsg.style.textAlign = 'center';
+                noQuestionsMsg.textContent = 'This quiz has no questions. Please go back and choose another quiz.';
+                quizContainer.appendChild(noQuestionsMsg);
             }
             
-            // Initialize timers
-            function startGlobalTimer() {
-                try {
-                    const timerDisplay = document.getElementById('timer');
-                    
-                    function updateTimer() {
-                        const minutes = Math.floor(globalTimeLeft / 60);
-                        const seconds = globalTimeLeft % 60;
-                        
-                        timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                        
-                        if (globalTimeLeft <= 0) {
-                            clearInterval(globalTimerInterval);
-                            // Only auto-submit if they've had the quiz open for at least 5 seconds
-                            if (Date.now() - quizStartTime > 5000) {
-                                submitQuiz(true); // Force submit when time is up
-                            } else {
-                                // Reset the timer if we just started
-                                globalTimeLeft = {{ quiz.total_time }} || 0;
-                            }
-                        } else {
-                            globalTimeLeft--;
-                        }
-                    }
-                    
-                    updateTimer(); // Call once immediately
-                    globalTimerInterval = setInterval(updateTimer, 1000);
-                } catch (error) {
-                    console.error('Error starting global timer:', error);
-                }
-            }
+            // Set up tab visibility detection
+            setupTabDetection();
             
-            function startQuestionTimer(questionIndex) {
-                try {
-                    const questions = {{ quiz.questions|tojson }};
-                    
-                    // Safely get the question and its time limit
-                    const question = questions[questionIndex] || {};
-                    const timePerQuestion = question.time_per_question || 30;
-                    let timeLeft = timePerQuestion;
-                    
-                    const timeLeftDisplay = document.getElementById(`time-left-${questionIndex}`);
-                    const progressFill = document.getElementById(`progress-fill-${questionIndex}`);
-                    
-                    // Clear previous timer if exists
-                    if (questionTimers[questionIndex]) {
-                        clearInterval(questionTimers[questionIndex]);
-                    }
-                    
-                    function updateTimer() {
-                        const percentLeft = (timeLeft / timePerQuestion) * 100;
-                        progressFill.style.width = `${percentLeft}%`;
-                        
-                        if (timeLeft <= 5) {
-                            progressFill.classList.add('danger');
-                        } else if (timeLeft <= 10) {
-                            progressFill.classList.add('warning');
-                        }
-                        
-                        timeLeftDisplay.textContent = timeLeft;
-                        
-                        if (timeLeft <= 0) {
-                            clearInterval(questionTimers[questionIndex]);
-                            
-                            // Only auto-advance if they've been on this question for at least 3 seconds
-                            if (Date.now() - questionStartTimes[questionIndex] > 3000) {
-                                // Auto-advance to next question when time is up
-                                if (questionIndex < totalQuestions - 1) {
-                                    showQuestion(questionIndex + 1);
-                                } else {
-                                    submitQuiz(true); // Force submit on the last question
-                                }
-                            } else {
-                                // Reset timer if we just started
-                                timeLeft = timePerQuestion;
-                                questionStartTimes[questionIndex] = Date.now();
-                            }
-                        } else {
-                            timeLeft--;
-                        }
-                    }
-                    
-                    // Mark the start time for this question
-                    questionStartTimes[questionIndex] = Date.now();
-                    
-                    updateTimer(); // Call once immediately
-                    questionTimers[questionIndex] = setInterval(updateTimer, 1000);
-                } catch (error) {
-                    console.error('Error starting question timer:', error);
+            // Add event handlers for navigation buttons
+            document.getElementById('prev-btn').addEventListener('click', function() {
+                if (currentQuestionIndex > 0) {
+                    showQuestion(currentQuestionIndex - 1);
                 }
-            }
+            });
             
-            // Navigation functions
-            function showQuestion(index) {
-                try {
-                    console.log("Attempting to show question:", index);
-                    
-                    // Validate the index
-                    if (index < 0 || index >= totalQuestions) {
-                        console.error("Invalid question index:", index);
-                        return;
-                    }
-                    
-                    // Hide all questions
-                    questionContainers.forEach((container, i) => {
-                        container.style.display = 'none';
-                        console.log("Hidden question container", i);
-                    });
-                    
-                    // Update progress dots
-                    progressDots.forEach((dot, i) => {
-                        if (i === index) {
-                            dot.classList.add('active');
-                        } else {
-                            dot.classList.remove('active');
-                        }
-                    });
-                    
-                    // Show the selected question
-                    const selectedQuestion = document.getElementById(`question-${index}`);
-                    if (selectedQuestion) {
-                        selectedQuestion.style.display = 'block';
-                        console.log("Showing question container", index);
-                        currentQuestionIndex = index;
-                        currentQuestionInput.value = index;
-                        
-                        // Start timer for this question
-                        startQuestionTimer(index);
-                        
-                        // Update navigation buttons
-                        updateNavigationButtons();
-                    } else {
-                        console.error("Question container not found for index:", index);
-                        // Fallback: try to show any container
-                        if (questionContainers.length > index) {
-                            questionContainers[index].style.display = 'block';
-                            console.log("Fallback: showing question container by index", index);
-                        }
-                    }
-                } catch (error) {
-                    console.error("Error showing question:", error);
+            document.getElementById('next-btn').addEventListener('click', function() {
+                if (currentQuestionIndex < totalQuestions - 1) {
+                    showQuestion(currentQuestionIndex + 1);
+                } else {
+                    // On last question, show submit button
+                    document.getElementById('next-btn').style.display = 'none';
+                    document.getElementById('submit-btn').style.display = 'block';
                 }
-            }
+            });
+
+            // Submit button handler
+            document.getElementById('submit-btn').addEventListener('click', function() {
+                document.getElementById('quiz-form').submit();
+            });
+        });
+        
+        // Keep the tab detection function
+        function setupTabDetection() {
+            document.addEventListener('visibilitychange', function() {
+                if (document.visibilityState === 'hidden') {
+                    handleTabSwitch();
+                }
+            });
+        }
+        
+        function handleTabSwitch() {
+            tabSwitchCount++;
             
-            function updateNavigationButtons() {
-                prevBtn.disabled = currentQuestionIndex === 0;
+            // Display warning
+            const warningElement = document.createElement('div');
+            warningElement.className = 'tab-switch-warning';
+            warningElement.textContent = `Warning: Tab switch detected! (${tabSwitchCount}/${MAX_TAB_SWITCHES})`;
+            warningElement.style.backgroundColor = '#ffcc00';
+            warningElement.style.color = '#000';
+            warningElement.style.padding = '10px';
+            warningElement.style.margin = '10px 0';
+            warningElement.style.borderRadius = '5px';
+            warningElement.style.fontWeight = 'bold';
+            warningElement.style.textAlign = 'center';
+            
+            // Add to top of quiz container
+            const quizContainer = document.querySelector('.quiz-container');
+            quizContainer.insertBefore(warningElement, quizContainer.firstChild);
+            
+            // Remove after 5 seconds
+            setTimeout(() => {
+                warningElement.remove();
+            }, 5000);
+            
+            // If max switches reached, submit/fail the quiz
+            if (tabSwitchCount >= MAX_TAB_SWITCHES) {
+                alert("You have switched tabs too many times. The quiz will be submitted now.");
+                document.getElementById('quiz-form').submit();
+            }
+        }
+        
+        // Update show question function
+        function showQuestion(index) {
+            try {
+                // Validate index
+                if (index < 0 || index >= totalQuestions) {
+                    return;
+                }
                 
+                // Hide all questions first
+                const questionContainers = document.querySelectorAll('.quiz-question-container');
+                questionContainers.forEach(container => {
+                    container.style.display = 'none';
+                });
+                
+                // Show the selected question
+                const targetContainer = document.getElementById(`question-${index}`);
+                if (targetContainer) {
+                    targetContainer.style.display = 'block';
+                    currentQuestionIndex = index;
+                    updateProgressBar();
+                    
+                    // Start timer for this question ONLY if not already started
+                    if (!questionTimeStarted[index]) {
+                        startQuestionTimer(index);
+                        questionTimeStarted[index] = true;
+                    }
+                } else {
+                    // Fallback - if the target isn't found, show the first question
+                    if (questionContainers.length > 0) {
+                        questionContainers[0].style.display = 'block';
+                    }
+                }
+            } catch (error) {
+                console.error('Error in showQuestion function:', error);
+            }
+        }
+        
+        function updateProgressBar() {
+            // Update progress dots
+            const progressDots = document.querySelectorAll('.progress-dot');
+            progressDots.forEach((dot, i) => {
+                if (i === currentQuestionIndex) {
+                    dot.classList.add('active');
+                } else {
+                    dot.classList.remove('active');
+                }
+            });
+            
+            // Update current question input field
+            const currentQuestionInput = document.getElementById('current_question');
+            if (currentQuestionInput) {
+                currentQuestionInput.value = currentQuestionIndex;
+            }
+            
+            // Update navigation buttons
+            const prevBtn = document.getElementById('prev-btn');
+            const nextBtn = document.getElementById('next-btn');
+            const submitBtn = document.getElementById('submit-btn');
+            
+            if (prevBtn) prevBtn.disabled = currentQuestionIndex === 0;
+            
+            if (nextBtn && submitBtn) {
                 if (currentQuestionIndex === totalQuestions - 1) {
                     nextBtn.style.display = 'none';
                     submitBtn.style.display = 'block';
@@ -871,211 +884,132 @@
                     submitBtn.style.display = 'none';
                 }
             }
+        }
+        
+        // Only use per-question timer - no global timer
+        function startQuestionTimer(index) {
+            // Don't restart the timer if we're navigating back to this question
+            if (questionTimers[index]) return;
             
-            // Event listeners for navigation
-            prevBtn.addEventListener('click', () => {
-                console.log("Previous button clicked");
-                if (currentQuestionIndex > 0) {
-                    showQuestion(currentQuestionIndex - 1);
-                }
-            });
+            const progressFill = document.getElementById(`progress-fill-${index}`);
+            if (!progressFill) return;
             
-            nextBtn.addEventListener('click', () => {
-                console.log("Next button clicked");
-                if (currentQuestionIndex < totalQuestions - 1) {
-                    showQuestion(currentQuestionIndex + 1);
-                }
-            });
+            // Get time limit from the question data
+            let timeLimit = 30; // default
+            {% for q in quiz.questions %}
+            if ({{ loop.index0 }} === index) {
+                timeLimit = {{ q.time_per_question or 30 }};
+            }
+            {% endfor %}
             
-            // Also add direct click to handle any synchronization issues
-            document.querySelectorAll('.quiz-nav-btn').forEach(btn => {
-                btn.style.backgroundColor = '#4f46e5';  // Ensure buttons are visible
-                btn.style.color = 'white';
-                btn.style.fontWeight = 'bold';
-                console.log("Enhancing button:", btn.textContent);
-            });
+            let timeLeft = timeLimit;
             
-            nextBtn.onclick = function() {
-                console.log("Direct Next click handler");
-                if (currentQuestionIndex < totalQuestions - 1) {
-                    showQuestion(currentQuestionIndex + 1);
-                }
-            };
+            // Update progress bar immediately before starting the timer
+            progressFill.style.width = '100%';
             
-            prevBtn.onclick = function() {
-                console.log("Direct Previous click handler");
-                if (currentQuestionIndex > 0) {
-                    showQuestion(currentQuestionIndex - 1);
-                }
-            };
-            
-            // Progress dots navigation
-            progressDots.forEach((dot, index) => {
-                dot.addEventListener('click', () => {
-                    showQuestion(index);
-                });
-            });
-            
-            // Form submission
-            form.addEventListener('submit', function(e) {
-                e.preventDefault();
-                submitQuiz();
-            });
-            
-            function submitQuiz(isTimeout = false) {
-                // Clear all timers
-                clearInterval(globalTimerInterval);
-                questionTimers.forEach(timer => {
-                    if (timer) clearInterval(timer);
-                });
-                
-                // Check if we need to collect webcam images one more time before submitting
-                if (webcamInterval) {
-                    clearInterval(webcamInterval);
-                    captureWebcamImage(true); // Final capture
+            // Display time remaining above the question
+            const currentQuestionContainer = document.getElementById(`question-${index}`);
+            if (currentQuestionContainer) {
+                // Create or get the countdown element
+                let countdownElement = currentQuestionContainer.querySelector('.countdown-display');
+                if (!countdownElement) {
+                    countdownElement = document.createElement('div');
+                    countdownElement.className = 'countdown-display';
+                    countdownElement.style.textAlign = 'center';
+                    countdownElement.style.fontWeight = 'bold';
+                    countdownElement.style.color = '#4f46e5';
+                    countdownElement.style.margin = '10px 0';
+                    countdownElement.style.fontSize = '16px';
+                    currentQuestionContainer.insertBefore(countdownElement, currentQuestionContainer.firstChild);
                 }
                 
-                // Add timeout flag if submission due to time expiry
-                if (isTimeout) {
-                    const timeoutInput = document.createElement('input');
-                    timeoutInput.type = 'hidden';
-                    timeoutInput.name = 'timeout';
-                    timeoutInput.value = 'true';
-                    form.appendChild(timeoutInput);
-                }
-                
-                // Submit the form
-                form.submit();
+                // Set initial display
+                countdownElement.textContent = `Time remaining: ${timeLeft} seconds`;
             }
             
-            // Webcam monitoring
-            async function setupWebcam() {
-                try {
-                    // Update status to show we're requesting permission
-                    monitoringStatus.innerHTML = '<span>Requesting camera permission...</span>';
-                    monitoringStatus.className = 'monitoring-status';
-                    
-                    webcamStream = await navigator.mediaDevices.getUserMedia({
-                        video: {
-                            facingMode: 'user',
-                            width: { ideal: 320 },
-                            height: { ideal: 240 }
-                        }
-                    });
-                    
-                    webcamElement.srcObject = webcamStream;
-                    monitoringStatus.textContent = 'Monitoring';
-                    monitoringStatus.className = 'monitoring-status active';
-                    
-                    // Start periodic capture
-                    webcamInterval = setInterval(captureWebcamImage, 5000); // Capture every 5 seconds
-                } catch (error) {
-                    console.error('Error accessing webcam:', error);
-                    // Show a more informative message and provide ability to retry
-                    monitoringStatus.innerHTML = '<button id="retry-webcam-btn" style="background: none; border: none; color: white; cursor: pointer; width: 100%;">Permission denied. Click to retry</button>';
-                    monitoringStatus.className = 'monitoring-status error';
-                    
-                    // Add event listener to retry button
-                    document.getElementById('retry-webcam-btn').addEventListener('click', function() {
-                        setupWebcam();
-                    });
-                    
-                    // Continue quiz even without webcam
-                    console.log('Continuing quiz without webcam monitoring');
-                }
-            }
-            
-            function captureWebcamImage(isFinal = false) {
-                // Skip if webcam stream is not available
-                if (!webcamStream || !webcamElement || !webcamElement.videoWidth) {
-                    console.log('Webcam stream not available, skipping image capture');
-                    return;
-                }
+            questionTimers[index] = setInterval(function() {
+                timeLeft--;
                 
-                const canvas = document.createElement('canvas');
-                canvas.width = webcamElement.videoWidth;
-                canvas.height = webcamElement.videoHeight;
-                
-                const context = canvas.getContext('2d');
-                context.drawImage(webcamElement, 0, 0, canvas.width, canvas.height);
-                
-                const imageDataUrl = canvas.toDataURL('image/jpeg', 0.7);
-                
-                // Send to server for eye tracking/face detection
-                fetch('/api/check-eyes', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        image: imageDataUrl,
-                        quiz_id: '{{ quiz.id }}',
-                        timestamp: new Date().toISOString(),
-                        is_final: isFinal
-                    })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.warning) {
-                        monitoringStatus.textContent = data.message;
-                        monitoringStatus.className = 'monitoring-status warning';
-                    } else {
-                        monitoringStatus.textContent = 'Monitoring';
-                        monitoringStatus.className = 'monitoring-status active';
-                    }
-                })
-                .catch(error => {
-                    console.error('Error checking eyes:', error);
-                });
-            }
-            
-            // Quiz options selection highlighting
-            const quizOptions = document.querySelectorAll('.quiz-option');
-            quizOptions.forEach(option => {
-                option.addEventListener('click', function() {
-                    // For radio button based options
-                    const radioInput = this.querySelector('input[type="radio"]');
-                    if (radioInput) {
-                        radioInput.checked = true;
+                // Update countdown display
+                if (currentQuestionContainer) {
+                    const countdownElement = currentQuestionContainer.querySelector('.countdown-display');
+                    if (countdownElement) {
+                        countdownElement.textContent = `Time remaining: ${timeLeft} seconds`;
                         
-                        // Remove selected class from all options in the same group
-                        const name = radioInput.name;
-                        document.querySelectorAll(`input[name="${name}"]`).forEach(input => {
-                            input.closest('.quiz-option').classList.remove('selected');
+                        // Change color as time gets low
+                        if (timeLeft <= 5) {
+                            countdownElement.style.color = '#ef4444';
+                        } else if (timeLeft <= 10) {
+                            countdownElement.style.color = '#f59e0b';
+                        }
+                    }
+                }
+                
+                // Update progress bar
+                const percentLeft = (timeLeft / timeLimit) * 100;
+                progressFill.style.width = `${percentLeft}%`;
+                
+                // Add warning classes as time gets low
+                if (timeLeft <= 5) {
+                    progressFill.classList.add('danger');
+                } else if (timeLeft <= 10) {
+                    progressFill.classList.add('warning');
+                    progressFill.classList.remove('danger');
+                }
+                
+                if (timeLeft <= 0) {
+                    clearInterval(questionTimers[index]);
+                    
+                    // Disable ALL navigation buttons
+                    const prevBtn = document.getElementById('prev-btn');
+                    const nextBtn = document.getElementById('next-btn');
+                    if (prevBtn) prevBtn.disabled = true;
+                    if (nextBtn) nextBtn.disabled = true;
+                    
+                    // Disable radio buttons for the current question
+                    if (currentQuestionContainer) {
+                        const inputs = currentQuestionContainer.querySelectorAll('input, textarea, select');
+                        inputs.forEach(input => {
+                            input.disabled = true;
                         });
                         
-                        // Add selected class to this option
-                        this.classList.add('selected');
+                        // Show timeout message
+                        if (countdownElement) {
+                            countdownElement.textContent = "Time's up! Moving to next question...";
+                            countdownElement.style.color = '#ef4444';
+                        }
                     }
-                });
-            });
-            
-            // Setup webcam on page load - wrapped in try/catch
-            try {
-                // No longer calling setupWebcam automatically
-                // Users will click the button to enable it
-                console.log('Webcam ready for activation by user');
-            } catch (error) {
-                console.error('Error setting up webcam:', error);
-                // Continue with quiz regardless of webcam issues
-            }
-            
-            // Start timers after everything is defined - wrapped in try/catch
-            try {
-                startGlobalTimer();
-                startQuestionTimer(0);
-            } catch (error) {
-                console.error('Error starting timers:', error);
-                // Show the first question even if timers fail
-                if (questionContainers.length > 0) {
-                    questionContainers[0].style.display = 'block';
+                    
+                    // If all questions are done, submit the quiz
+                    const allDone = Object.keys(questionTimeStarted).length === totalQuestions && 
+                                   Object.values(questionTimeStarted).every(started => started);
+                    
+                    if (allDone) {
+                        // Submit the quiz only when all questions have been seen and timed out
+                        setTimeout(function() {
+                            alert("All questions completed. Submitting quiz...");
+                            document.getElementById('quiz-form').submit();
+                        }, 1000);
+                    }
+                    else if (index < totalQuestions - 1) {
+                        // Move to next question after 2 seconds if not the last question
+                        setTimeout(function() {
+                            showQuestion(index + 1);
+                            // Re-enable the next button for new question (but not prev button)
+                            if (nextBtn) nextBtn.disabled = false;
+                        }, 2000);
+                    }
+                    else {
+                        // If it's the last question, show submit button
+                        const submitBtn = document.getElementById('submit-btn');
+                        if (submitBtn) {
+                            submitBtn.disabled = false;
+                            submitBtn.style.display = 'block';
+                        }
+                    }
                 }
-            }
-        } catch (error) {
-            console.error('Error initializing quiz:', error);
-            alert('There was an error loading the quiz. Please refresh the page and try again.');
+            }, 1000);
         }
-    });
     </script>
 </body>
 </html>

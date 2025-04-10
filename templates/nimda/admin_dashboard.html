@@ -1237,33 +1237,81 @@ body {
 
             // Get all question blocks
             const questionBlocks = document.querySelectorAll('.question-block');
+            
+            // Debug: Log total number of questions being processed
+            console.log(`Processing ${questionBlocks.length} question blocks`);
 
             // Process each question block
             questionBlocks.forEach((block, blockIndex) => {
-                // Get the question text
+                // Get the question index from the hidden input
+                const questionIndex = block.querySelector('input[name="question_index[]"]').value;
+                formData.append('question_index[]', questionIndex);
+                
+                // Get the question text and type
                 const questionText = block.querySelector('textarea[name="questions[]"]').value;
+                const questionType = block.querySelector('select[name="question_types[]"]').value;
                 formData.append('questions[]', questionText);
-
-                // Get the correct answer for this question
-                const correctRadio = block.querySelector('input[type="radio"]:checked');
+                formData.append('question_types[]', questionType);
+                
+                // Get time limit
+                const timeLimit = block.querySelector(`input[name="time_limit_${questionIndex}"]`).value;
+                formData.append(`time_limit_${questionIndex}`, timeLimit);
+                
+                console.log(`Question ${blockIndex + 1}: Type=${questionType}, Text=${questionText.substring(0, 30)}...`);
+                
+                // Process type-specific fields
+                if (questionType === 'multiple_choice') {
+                    // Get all options
+                    const optionInputs = block.querySelectorAll(`input[name="options_${questionIndex}[]"]`);
+                    optionInputs.forEach((input) => {
+                        formData.append(`options_${questionIndex}[]`, input.value);
+                    });
+                    
+                    // Get correct answer
+                    const correctRadio = block.querySelector(`input[name="correct_answer_${questionIndex}"]:checked`);
                 if (correctRadio) {
-                    formData.append(`correct_answer_${blockIndex}`, correctRadio.value);
+                        formData.append(`correct_answer_${questionIndex}`, correctRadio.value);
+                    }
+                } 
+                else if (questionType === 'true_false') {
+                    // Get correct answer for true/false
+                    const tfCorrectRadio = block.querySelector(`input[name="tf_correct_answer_${questionIndex}"]:checked`);
+                    if (tfCorrectRadio) {
+                        formData.append(`tf_correct_answer_${questionIndex}`, tfCorrectRadio.value);
+                    }
                 }
-
-                // Get all options for this question
-                const optionInputs = block.querySelectorAll('.option-input input[type="text"]');
-                optionInputs.forEach((input, optionIndex) => {
-                    formData.append(`options_${blockIndex}[]`, input.value);
-                });
+                else if (questionType === 'short_answer') {
+                    // Get correct answer and AI detection setting
+                    const shortAnswer = block.querySelector(`input[name="short_answer_${questionIndex}"]`);
+                    const aiDetection = block.querySelector(`input[name="ai_detection_${questionIndex}"]`);
+                    
+                    if (shortAnswer) {
+                        formData.append(`short_answer_${questionIndex}`, shortAnswer.value);
+                    }
+                    if (aiDetection && aiDetection.checked) {
+                        formData.append(`ai_detection_${questionIndex}`, 'on');
+                    }
+                }
+                // Add other question types as needed
             });
 
+            // Debug: Log FormData entries
+            console.log('FormData contents:');
+            for (let pair of formData.entries()) {
+                console.log(pair[0] + ': ' + pair[1]);
+            }
+
             try {
+                console.log('Submitting quiz questions to server...');
                 const response = await fetch('/nimda/save_quiz_questions', {
                     method: 'POST',
                     body: formData
                 });
 
                 if (response.ok) {
+                    const result = await response.json();
+                    console.log('Server response:', result);
+                    
                     // Show success popup
                     showPopup('successPopup');
 

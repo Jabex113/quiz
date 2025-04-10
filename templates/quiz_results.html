@@ -348,7 +348,11 @@
                         {% endif %}">
                         {% if question.question_type == 'multiple_choice' %}
                             {% if question.user_answer is not none %}
-                                {{ question.user_answer + 1 }}. {{ question.options[question.user_answer] }}
+                                {% if question.options is defined and question.options %}
+                                    {{ question.user_answer + 1 }}. {{ question.options[question.user_answer] }}
+                                {% else %}
+                                    Option {{ question.user_answer + 1 }}
+                                {% endif %}
                             {% else %}
                                 No answer provided
                             {% endif %}
@@ -396,7 +400,11 @@
                     <h4 class="mt-3">Correct Answer:</h4>
                     <div class="answer-content correct">
                         {% if question.question_type == 'multiple_choice' %}
-                            {{ question.correct_answer + 1 }}. {{ question.options[question.correct_answer] }}
+                            {% if question.options is defined and question.options %}
+                                {{ question.correct_answer + 1 }}. {{ question.options[question.correct_answer] }}
+                            {% else %}
+                                Option {{ question.correct_answer + 1 }}
+                            {% endif %}
                         
                         {% elif question.question_type == 'true_false' %}
                             {{ question.correct_answer }}
