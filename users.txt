@@ -190,7 +190,38 @@
         "needs_review": false,
         "ai_content_detected": false,
         "plagiarism_detected": false
+      },
+      {
+        "quiz_id": "0547",
+        "quiz_title": "tes",
+        "timestamp": "2025-04-13T04:10:20.274931",
+        "score": 50.0,
+        "question_results": [
+          {
+            "question": "dada",
+            "question_type": "multiple_choice",
+            "user_answer": 3,
+            "correct_answer": 3,
+            "is_correct": true,
+            "feedback": ""
+          },
+          {
+            "question": "wes",
+            "question_type": "essay",
+            "user_answer": "sasa",
+            "correct_answer": null,
+            "is_correct": null,
+            "feedback": "Essay will be reviewed by the instructor."
+          }
+        ],
+        "timeout": false
       }
     ]
+  },
+  "lol@gmail.com": {
+    "username": "user",
+    "password": "pbkdf2:sha256:260000$oYb0EZYjfbueZSme$7b9e375865aeee6c53f63bd278dfaa5e8cd329c00179e173af7318c766ac8b0c",
+    "role": "teacher",
+    "created_at": "2025-04-13T04:14:27.880003"
   }
 }

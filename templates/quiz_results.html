@@ -263,21 +263,6 @@
             <p>{% if results.timestamp %}{{ results.timestamp|datetime }}{% else %}Quiz completed just now{% endif %}</p>
         </div>
 
-        {% if results.ai_content_detected or results.plagiarism_detected %}
-        <div class="warning-banner">
-            <i class="fas fa-exclamation-triangle"></i>
-            <div>
-                <p><strong>Warning:</strong> Academic integrity concerns detected in this quiz.</p>
-                {% if results.ai_content_detected %}
-                <p>AI-generated content was detected in one or more answers.</p>
-                {% endif %}
-                {% if results.plagiarism_detected %}
-                <p>Potential plagiarism was detected in one or more answers.</p>
-                {% endif %}
-            </div>
-        </div>
-        {% endif %}
-
         <div class="score-display">
             <div class="score-circle">
                 <div class="score-inner">

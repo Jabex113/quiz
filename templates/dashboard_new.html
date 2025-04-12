@@ -493,6 +493,207 @@
                 transform: translateY(-5px);
             }
         }
+
+        .dashboard-content {
+            display: flex;
+            margin-top: 20px;
+        }
+        
+        .left-sidebar {
+            width: 250px;
+            padding-right: 20px;
+        }
+        
+        .menu-container {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        
+        .menu-container h3 {
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+            color: #1f2937;
+        }
+        
+        .menu {
+            list-style: none;
+        }
+        
+        .menu-item {
+            padding: 10px 15px;
+            margin-bottom: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.2s ease;
+        }
+        
+        .menu-item:hover {
+            background: #f3f4f6;
+        }
+        
+        .menu-item.active {
+            background: #6366f1;
+            color: white;
+        }
+        
+        .quiz-grid-container {
+            flex: 1;
+        }
+        
+        .category-title {
+            margin-bottom: 20px;
+            color: #1f2937;
+            font-size: 1.5rem;
+        }
+        
+        .quiz-card {
+            display: flex;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .quiz-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        
+        .quiz-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 80px;
+            background: #6366f1;
+            color: white;
+            font-size: 1.8rem;
+        }
+        
+        .quiz-details {
+            padding: 15px;
+            flex: 1;
+        }
+        
+        .quiz-details h3 {
+            margin-bottom: 10px;
+            color: #1f2937;
+        }
+        
+        .quiz-description {
+            color: #6b7280;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+        }
+        
+        .quiz-meta {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.85rem;
+            color: #6b7280;
+        }
+        
+        .take-quiz-btn {
+            display: inline-block;
+            padding: 8px 15px;
+            background: #6366f1;
+            color: white;
+            border-radius: 5px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: background 0.2s ease;
+        }
+        
+        .take-quiz-btn:hover {
+            background: #4f46e5;
+        }
+        
+        .no-quizzes {
+            padding: 20px;
+            background: #f9fafb;
+            border-radius: 10px;
+            text-align: center;
+            color: #6b7280;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.4);
+            animation: fadeIn 0.3s;
+        }
+        
+        .modal-content {
+            background-color: #fff;
+            margin: 15% auto;
+            padding: 30px;
+            width: 400px;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            text-align: center;
+            animation: slideIn 0.3s;
+        }
+        
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        
+        .close:hover {
+            color: #333;
+        }
+        
+        .modal-icon {
+            font-size: 4rem;
+            color: #4CAF50;
+            margin-bottom: 20px;
+        }
+        
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .modal-message {
+            color: #666;
+            margin-bottom: 20px;
+        }
+        
+        @keyframes fadeIn {
+            from {opacity: 0;}
+            to {opacity: 1;}
+        }
+        
+        @keyframes slideIn {
+            from {transform: translateY(-50px); opacity: 0;}
+            to {transform: translateY(0); opacity: 1;}
+        }
     </style>
 </head>
 <body>
@@ -530,6 +731,18 @@
         </div>
     </nav>
 
+    <!-- Success Modal -->
+    <div id="successModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div class="modal-icon">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div class="modal-title">Success!</div>
+            <div class="modal-message" id="successMessage">Action completed successfully.</div>
+        </div>
+    </div>
+
     <main>
         <div class="menu-section">
             <h2 class="menu-title">Quick Access</h2>
@@ -541,43 +754,60 @@
             </div>
         </div>
 
-        <div class="quiz-grid">
-            {% if quizzes %}
-                {% for quiz in quizzes %}
-                    <div class="quiz-card {% if quiz.id in user_completed_quizzes %}quiz-completed{% endif %}" data-category="{{ quiz.category }}">
-                        <div class="quiz-banner">
-                            <i class="fas {{ quiz.icon }}"></i>
-                            {% if quiz.id in user_completed_quizzes %}
-                                <div class="completed-overlay">Completed</div>
-                            {% endif %}
-                        </div>
-                        <div class="quiz-content">
-                            <h3 class="quiz-title">{{ quiz.title }}</h3>
-                            <p class="quiz-info">{{ quiz.description }}</p>
-                            <div class="quiz-topics">
-                                {% for topic in quiz.topics.split(',') %}
-                                    <span class="topic-tag">{{ topic.strip() }}</span>
-                                {% endfor %}
-                            </div>
-                            {% if quiz.id in user_completed_quizzes %}
-                                <button class="start-quiz" disabled>
-                                    Quiz Completed
-                                </button>
-                            {% else %}
-                                <button class="start-quiz" onclick="window.location.href='{{ url_for('start_quiz', quiz_id=quiz.id) }}'; return false;">
-                                    <span>Start Quiz</span>
-                                    <i class="fas fa-arrow-right"></i>
-                                </button>
-                            {% endif %}
-                        </div>
-                    </div>
-                {% endfor %}
-            {% else %}
-                <div class="no-quizzes">
-                    <h3>No Quizzes Available</h3>
-                    <p>There are currently no quizzes for your strand. Check back later!</p>
+        <div class="dashboard-content">
+            <div class="left-sidebar">
+                <div class="menu-container">
+                    <h3>Categories</h3>
+                    <ul class="menu">
+                        {% for category in organized_quizzes.keys() %}
+                        <li class="menu-item {% if loop.first %}active{% endif %}" data-category="{{ category }}">
+                            <i class="fas fa-folder"></i>
+                            {{ category }}
+                        </li>
+                        {% endfor %}
+                    </ul>
                 </div>
-            {% endif %}
+            </div>
+            
+            <div class="quiz-grid-container">
+                {% for category, quizzes in organized_quizzes.items() %}
+                <div class="quiz-category" id="category-{{ category|lower|replace(' ', '-') }}" 
+                     style="display: {% if loop.first %}block{% else %}none{% endif %};">
+                    <h2 class="category-title">{{ category }}</h2>
+                    
+                    <div class="quiz-grid">
+                        {% for quiz in quizzes %}
+                        <div class="quiz-card">
+                            <div class="quiz-icon">
+                                <i class="fas fa-book-open"></i>
+                            </div>
+                            <div class="quiz-details">
+                                <h3>{{ quiz.title }}</h3>
+                                <p class="quiz-description">{{ quiz.description }}</p>
+                                <div class="quiz-meta">
+                                    <span class="meta-item">
+                                        <i class="fas fa-list"></i>
+                                        {{ quiz.questions|length }} questions
+                                    </span>
+                                    <span class="meta-item">
+                                        <i class="fas fa-graduation-cap"></i>
+                                        {{ quiz.strand }}
+                                    </span>
+                                </div>
+                                <a href="{{ url_for('start_quiz', quiz_id=quiz.id) }}" class="take-quiz-btn">
+                                    Take Quiz
+                                </a>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="no-quizzes">
+                            <p>No quizzes available for this category.</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
         </div>
     </main>
 
@@ -629,7 +859,7 @@
             }
         });
 
-        // Category filter functionality
+        // Filter quizzes based on the selected category
         document.querySelectorAll('.menu-item').forEach(item => {
             item.addEventListener('click', function() {
                 // Remove active class from all menu items
@@ -640,31 +870,17 @@
                 // Add active class to clicked item
                 this.classList.add('active');
 
-                // Filter quizzes based on the selected category
-                const selectedCategory = this.textContent.trim();
-                filterQuizzes(selectedCategory);
+                // Hide all category sections
+                document.querySelectorAll('.quiz-category').forEach(section => {
+                    section.style.display = 'none';
+                });
+
+                // Show the selected category section
+                const selectedCategory = this.getAttribute('data-category');
+                const categoryID = `category-${selectedCategory.toLowerCase().replace(/ /g, '-')}`;
+                document.getElementById(categoryID).style.display = 'block';
             });
         });
-
-        function filterQuizzes(category) {
-            const quizCards = document.querySelectorAll('.quiz-card');
-
-            // If 'All Quizzes' is selected, show all quizzes
-            if (category === 'All Quizzes') {
-                quizCards.forEach(card => card.style.display = '');
-                return;
-            }
-
-            // Filter quizzes by category
-            quizCards.forEach(card => {
-                const quizCategory = card.getAttribute('data-category');
-                if (quizCategory === category) {
-                    card.style.display = '';
-                } else {
-                    card.style.display = 'none';
-                }
-            });
-        }
 
         // Notification functions
         function showNotification(message = "Account updated successfully.") {
@@ -858,6 +1074,40 @@
             ];
 
             // Note: The system message will be updated by the server to include user-specific information
+        }
+
+        // Check if there are any flash messages and show them in the modal
+        document.addEventListener('DOMContentLoaded', function() {
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        showModal("{{ message }}");
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            // Close modal when clicking the X
+            document.querySelector('.close').addEventListener('click', function() {
+                document.getElementById('successModal').style.display = 'none';
+            });
+            
+            // Close modal when clicking outside of it
+            window.addEventListener('click', function(event) {
+                if (event.target == document.getElementById('successModal')) {
+                    document.getElementById('successModal').style.display = 'none';
+                }
+            });
+        });
+        
+        // Function to show the success modal
+        function showModal(message) {
+            document.getElementById('successMessage').textContent = message;
+            document.getElementById('successModal').style.display = 'block';
+            
+            // Auto hide after 3 seconds
+            setTimeout(function() {
+                document.getElementById('successModal').style.display = 'none';
+            }, 3000);
         }
     </script>
 </body>

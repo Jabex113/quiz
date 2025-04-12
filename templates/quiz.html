@@ -444,9 +444,86 @@
             align-items: center;
             gap: 8px;
         }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.4);
+            animation: fadeIn 0.3s;
+        }
+        
+        .modal-content {
+            background-color: #fff;
+            margin: 15% auto;
+            padding: 30px;
+            width: 400px;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            text-align: center;
+            animation: slideIn 0.3s;
+        }
+        
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        
+        .close:hover {
+            color: #333;
+        }
+        
+        .modal-icon {
+            font-size: 4rem;
+            color: #4CAF50;
+            margin-bottom: 20px;
+        }
+        
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .modal-message {
+            color: #666;
+            margin-bottom: 20px;
+        }
+        
+        @keyframes fadeIn {
+            from {opacity: 0;}
+            to {opacity: 1;}
+        }
+        
+        @keyframes slideIn {
+            from {transform: translateY(-50px); opacity: 0;}
+            to {transform: translateY(0); opacity: 1;}
+        }
     </style>
 </head>
 <body>
+    <!-- Success Modal -->
+    <div id="successModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div class="modal-icon">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div class="modal-title">Success!</div>
+            <div class="modal-message" id="successMessage">Action completed successfully.</div>
+        </div>
+    </div>
+
     <div class="quiz-container">
         <div class="quiz-header">
             <h2 class="quiz-title">{{ quiz.title }}</h2>
@@ -515,16 +592,7 @@
                     <div class="short-answer">
                         <textarea name="answer_{{ loop.index0 }}" rows="3" 
                                   placeholder="Type your answer here..."
-                                  {% if question.ai_detection %}
-                                  data-ai-detection="true"
-                                  {% endif %}
                                   required></textarea>
-                        {% if question.ai_detection %}
-                        <div class="ai-detection-notice">
-                            <i class="fas fa-shield-alt"></i> 
-                            This answer will be checked for AI-generated content and plagiarism
-                        </div>
-                        {% endif %}
                     </div>
                     
                     <!-- Fill in the Blank Question -->
@@ -578,8 +646,6 @@
                     <div class="essay">
                         <textarea name="answer_{{ loop.index0 }}" rows="10" 
                                   placeholder="Write your essay here..."
-                                  {% if question.ai_detection %}data-ai-detection="true"{% endif %}
-                                  {% if question.anti_plagiarism %}data-plagiarism="true"{% endif %}
                                   data-word-limit="{{ question.word_limit or 500 }}"
                                   required></textarea>
                         
@@ -588,20 +654,6 @@
                                 <span id="word-count-{{ loop.index0 }}">0</span> / 
                                 <span>{{ question.word_limit or 500 }}</span> words
                             </div>
-                            
-                            {% if question.ai_detection or question.anti_plagiarism %}
-                            <div class="detection-notice">
-                                <i class="fas fa-shield-alt"></i> 
-                                This essay will be checked for 
-                                {% if question.ai_detection and question.anti_plagiarism %}
-                                AI-generated content and plagiarism
-                                {% elif question.ai_detection %}
-                                AI-generated content
-                                {% elif question.anti_plagiarism %}
-                                plagiarism
-                                {% endif %}
-                            </div>
-                            {% endif %}
                         </div>
                     </div>
                     {% endif %}
@@ -723,7 +775,7 @@
                         startQuestionTimer(0);
                         questionTimeStarted[0] = true;
                     }
-                } else {
+                        } else {
                     const anyQuestion = document.querySelector('.quiz-question-container');
                     if (anyQuestion) {
                         anyQuestion.style.display = 'block';
@@ -734,7 +786,7 @@
                         }
                     }
                 }
-            } else {
+                } else {
                 console.error("No questions found in the quiz!");
                 const quizContainer = document.querySelector('.quiz-container');
                 const noQuestionsMsg = document.createElement('div');
@@ -761,7 +813,7 @@
             document.getElementById('next-btn').addEventListener('click', function() {
                 if (currentQuestionIndex < totalQuestions - 1) {
                     showQuestion(currentQuestionIndex + 1);
-                } else {
+                    } else {
                     // On last question, show submit button
                     document.getElementById('next-btn').style.display = 'none';
                     document.getElementById('submit-btn').style.display = 'block';
@@ -1007,9 +1059,59 @@
                             submitBtn.style.display = 'block';
                         }
                     }
-                }
-            }, 1000);
+                    }
+                }, 1000);
+            }
+
+        // Function to show the success modal
+        function showModal(message, isSuccess = true) {
+            const modal = document.getElementById('successModal');
+            const modalTitle = modal.querySelector('.modal-title');
+            const modalIcon = modal.querySelector('.modal-icon i');
+            
+            document.getElementById('successMessage').textContent = message;
+            
+            if (isSuccess) {
+                modalTitle.textContent = 'Success!';
+                modalIcon.className = 'fas fa-check-circle';
+                modalIcon.style.color = '#4CAF50';
+            } else {
+                modalTitle.textContent = 'Notice';
+                modalIcon.className = 'fas fa-exclamation-circle';
+                modalIcon.style.color = '#f39c12';
+            }
+            
+            modal.style.display = 'block';
+            
+            // Auto hide after 3 seconds
+            setTimeout(function() {
+                modal.style.display = 'none';
+            }, 3000);
         }
+        
+        // Modal close functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            // Close modal when clicking the X
+            document.querySelector('.close').addEventListener('click', function() {
+                document.getElementById('successModal').style.display = 'none';
+            });
+            
+            // Close modal when clicking outside of it
+            window.addEventListener('click', function(event) {
+                if (event.target == document.getElementById('successModal')) {
+                    document.getElementById('successModal').style.display = 'none';
+                }
+            });
+            
+            // Check for flash messages
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        showModal("{{ message }}", "{{ category }}" !== "error");
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        });
     </script>
 </body>
 </html>

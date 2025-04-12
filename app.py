@@ -14,6 +14,7 @@ import base64
 import numpy as np
 import cv2
 import io
+import uuid
 
 load_dotenv()
 
@@ -155,11 +156,13 @@ def index():
 @app.route('/signup', methods=['POST'])
 def signup():
     username = request.form.get('username')
+    fullname = request.form.get('fullname')
+    lrn = request.form.get('lrn')
     email = request.form.get('email')
     password = request.form.get('password')
     strand = request.form.get('strand')
     
-    if not all([username, email, password, strand]):
+    if not all([username, fullname, lrn, email, password, strand]):
         flash('Please fill in all fields', 'error')
         return redirect(url_for('index'))
 
@@ -171,6 +174,8 @@ def signup():
     otp = generate_otp()
     session['signup_data'] = {
         'username': username,
+        'fullname': fullname,
+        'lrn': lrn,
         'email': email,
         'password': password,
         'strand': strand,
@@ -206,6 +211,8 @@ def verify_otp():
     users = load_users()
     users[signup_data['email']] = {
         'username': signup_data['username'],
+        'fullname': signup_data['fullname'],
+        'lrn': signup_data['lrn'],
         'password': generate_password_hash(signup_data['password'], method='pbkdf2:sha256'),
         'strand': signup_data['strand'],
         'created_at': datetime.now().isoformat(),
@@ -262,50 +269,43 @@ def login():
 
     session['user_email'] = email
     session['username'] = user['username']
-    session['strand'] = user['strand']
+    session['strand'] = user.get('strand', '')
+    
+    # Check if user is a teacher
+    if user.get('role') == 'teacher':
+        # Set teacher as logged in to admin panel
+        session['admin_logged_in'] = True
+        session['is_teacher'] = True
+        flash('Teacher login successful', 'success')
+        return redirect(url_for('admin_dashboard'))
     
     return redirect(url_for('dashboard'))
 
 @app.route('/dashboard')
 def dashboard():
     if 'user_email' not in session:
+        flash('Please log in to access the dashboard', 'error')
         return redirect(url_for('index'))
-
-    strand = session['strand']
+    
+    strand = session.get('strand')
     quizzes = load_quizzes()
-    users = load_users()
-
-    # Filter quizzes based on strand and category
-    strand_quizzes = [quiz for quiz in quizzes if quiz['strand'] == strand and 'questions' in quiz]
-
-    # Add icons based on category
-    icons = get_icons_by_category()
-    for quiz in strand_quizzes:
-        quiz['icon'] = icons.get(quiz['category'], 'fa-question-circle')
-
-    # Get user data
-    user = users[session['user_email']]
-
-    # Get user's quiz history
-    user_quiz_history = user.get('quiz_history', [])
-
-    # Get IDs of completed quizzes
-    user_completed_quizzes = [attempt['quiz_id'] for attempt in user_quiz_history]
-
-    # Get account creation date
-    account_created = user.get('created_at', None)
-    if account_created:
-        try:
-            account_created = datetime.fromisoformat(account_created).strftime('%B %d, %Y')
-        except:
-            account_created = 'N/A'
-
-    return render_template('dashboard_new.html',
-                       username=session['username'],
-                       strand=session['strand'],
-                       quizzes=strand_quizzes,
-                       categories=get_strand_categories(strand),
-                       user_completed_quizzes=user_completed_quizzes)
+    
+    # Organize quizzes by subject/category for better display
+    organized_quizzes = {}
+    
+    for quiz in quizzes:
+        category = quiz.get('quiz_category', 'Uncategorized')
+        if category not in organized_quizzes:
+            organized_quizzes[category] = []
+        
+        # Check if the quiz is meant for the user's strand
+        if quiz.get('strand', '') == strand or quiz.get('strand', '') == '':
+            organized_quizzes[category].append(quiz)
+    
+    return render_template('dashboard_new.html', 
+                           username=session.get('username'), 
+                           strand=strand,
+                           organized_quizzes=organized_quizzes)
 
 @app.route('/update_username', methods=['POST'])
 def update_username():
@@ -466,10 +466,6 @@ def submit_quiz():
     total_questions = len(quiz['questions'])
     question_results = []
     
-    # Check for AI content or plagiarism if needed
-    ai_content_detected = False
-    plagiarism_detected = False
-    
     # Process each question based on type
     for i, question in enumerate(quiz['questions']):
         question_type = question.get('question_type', 'multiple_choice')  # Default to multiple choice for old quizzes
@@ -491,53 +487,32 @@ def submit_quiz():
         elif question_type == 'short_answer':
             user_answer = request.form.get(f'answer_{i}', '').strip()
             
-            # Basic check for correctness (case insensitive)
-            is_correct = user_answer.lower() == question['correct_answer'].lower()
-            
-            # Check for AI content if enabled
-            if question.get('ai_detection') and user_answer:
-                ai_score = check_ai_content(user_answer)
-                
-                if ai_score > 0.7:  # Threshold for AI content detection
-                    ai_content_detected = True
-                    feedback = "AI-generated content detected in this answer."
+            # Basic check for correctness (case sensitive)
+            is_correct = user_answer == question['correct_answer']
         
         elif question_type == 'fill_blank':
-            blank_count = int(request.form.get(f'blank_count_{i}', 0))
-            blank_answers = []
+            user_answer = request.form.get(f'answer_{i}', '').strip()
             
-            for j in range(blank_count):
-                blank_answer = request.form.get(f'blank_{i}_{j}', '').strip()
-                blank_answers.append(blank_answer)
-            
-            user_answer = blank_answers
-            
-            # Check if all blanks are correct
-            if len(blank_answers) == len(question['blanks']):
-                is_correct = True
-                for j, answer in enumerate(blank_answers):
-                    if answer.lower() != question['blanks'][j].lower():
-                        is_correct = False
-                        break
+            # Check if answer is correct (case insensitive)
+            is_correct = user_answer.lower() == question['correct_answer'].lower()
         
         elif question_type == 'matching':
-            matching_answers = []
-            for j in range(len(question['right_items'])):
-                match_value = request.form.get(f'matching_{i}_{j}')
-                if match_value:
-                    matching_answers.append(int(match_value))
-                else:
-                    matching_answers.append(-1)  # No match selected
+            # Get all selected options for this matching question
+            user_answers = {}
+            for key, value in request.form.items():
+                if key.startswith(f'match_{i}_'):
+                    item_index = key.split('_')[2]
+                    user_answers[item_index] = value
             
-            user_answer = matching_answers
+            user_answer = user_answers
             
-            # Check if all matches are correct
-            if len(matching_answers) == len(question['correct_matches']):
-                is_correct = True
-                for j, match in enumerate(matching_answers):
-                    if match != question['correct_matches'][j]:
-                        is_correct = False
-                        break
+            # Check if all matching items are correct
+            is_correct = True
+            for item_index, selected_value in user_answers.items():
+                correct_value = question['matching_pairs'][int(item_index)]['match']
+                if selected_value != correct_value:
+                    is_correct = False
+                    break
         
         elif question_type == 'essay':
             user_answer = request.form.get(f'answer_{i}', '').strip()
@@ -545,22 +520,6 @@ def submit_quiz():
             # Essays are usually graded manually, mark as "needs review"
             is_correct = None
             feedback = "Essay will be reviewed by the instructor."
-            
-            # Check for AI content if enabled
-            if question.get('ai_detection') and user_answer:
-                ai_score = check_ai_content(user_answer)
-                
-                if ai_score > 0.7:  # Threshold for AI content detection
-                    ai_content_detected = True
-                    feedback += " AI-generated content detected."
-            
-            # Check for plagiarism if enabled
-            if question.get('anti_plagiarism') and user_answer:
-                plagiarism_score = check_plagiarism(user_answer)
-                
-                if plagiarism_score > 0.5:  # Threshold for plagiarism detection
-                    plagiarism_detected = True
-                    feedback += " Potential plagiarism detected."
         
         # Add to correct count if answer is correct
         if is_correct:
@@ -579,56 +538,34 @@ def submit_quiz():
     # Calculate score as percentage
     score = (correct_count / total_questions) * 100 if total_questions > 0 else 0
     
-    # If AI content or plagiarism was detected, mark the quiz for review
-    needs_review = ai_content_detected or plagiarism_detected
-    
     # Get user information
     users = load_users()
     user_email = session['user_email']
     user = users.get(user_email)
     
-    if user:
-        # Add quiz result to user's quiz history
-        quiz_result = {
-            'quiz_id': quiz_id,
-            'quiz_title': quiz['title'],
-            'score': score,
-            'correct_count': correct_count,
-            'total_questions': total_questions,
-            'timestamp': datetime.now().isoformat(),
-            'completed': not timeout,
-            'needs_review': needs_review,
-            'ai_content_detected': ai_content_detected,
-            'plagiarism_detected': plagiarism_detected
-        }
-        
-        if 'quiz_history' not in user:
-            user['quiz_history'] = []
-        
-        user['quiz_history'].append(quiz_result)
-        save_users(users)
+    if not user:
+        flash('User not found', 'error')
+        return redirect(url_for('dashboard'))
     
-    # If quiz timed out or AI/plagiarism detected, handle differently
-    if timeout:
-        return redirect(url_for('fail_quiz', quiz_id=quiz_id, reason='timeout'))
-    
-    if needs_review:
-        flash('Your quiz has been submitted for review due to potential academic integrity concerns.', 'warning')
-    
-    # Pass results to the results page
-    session['last_quiz_results'] = {
+    # Create quiz result record
+    result = {
         'quiz_id': quiz_id,
         'quiz_title': quiz['title'],
-        'score': score,
-        'correct_count': correct_count,
-        'total_questions': total_questions,
-        'question_results': question_results,
         'timestamp': datetime.now().isoformat(),
-        'ai_content_detected': ai_content_detected,
-        'plagiarism_detected': plagiarism_detected
+        'score': score,
+        'question_results': question_results,
+        'timeout': timeout
     }
     
-    return redirect(url_for('quiz_results'))
+    # Add result to user's quiz history
+    if 'quiz_history' not in user:
+        user['quiz_history'] = []
+    
+    user['quiz_history'].append(result)
+    save_users(users)
+    
+    # Redirect to results page
+    return redirect(url_for('quiz_results', quiz_id=quiz_id, result_index=len(user['quiz_history']) - 1))
 
 @app.route('/quiz-results')
 def quiz_results():
@@ -812,7 +749,12 @@ def check_eyes():
 
 @app.route('/logout')
 def logout():
-    session.clear()
+    if 'user_email' in session:
+        session.pop('user_email')
+    if 'username' in session:
+        session.pop('username')
+    if 'strand' in session:
+        session.pop('strand')
     return redirect(url_for('index'))
 
 @app.route('/nimda/login', methods=['GET', 'POST'])
@@ -820,73 +762,76 @@ def admin_login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-
-        if username == 'admin' and password == 'lol':
+        
+        # For debugging - print credentials to console
+        print(f"Admin login attempt: username='{username}', password='{password}'")
+        
+        # Check admin credentials (you should use a more secure method in production)
+        if username == 'admin' and password == 'admin123':
             session['admin_logged_in'] = True
+            flash('Admin login successful', 'success')
             return redirect(url_for('admin_dashboard'))
         else:
             flash('Invalid admin credentials', 'error')
-
+    
     return render_template('nimda/admin_login.html')
 
 @app.route('/nimda/dashboard')
 def admin_dashboard():
     if 'admin_logged_in' not in session:
         return redirect(url_for('admin_login'))
-
+    
+    is_teacher = session.get('is_teacher', False)
+    
+    # Get all users and quizzes
+    users = load_users()
     quizzes = load_quizzes()
-    return render_template('nimda/admin_dashboard.html', quizzes=quizzes)
+    
+    return render_template('nimda/admin_dashboard.html', users=users, quizzes=quizzes, is_teacher=is_teacher)
 
 @app.route('/nimda/post_quiz', methods=['POST'])
 def admin_post_quiz():
     if 'admin_logged_in' not in session:
-        return jsonify({"error": "Unauthorized"}), 401
-
-    title = request.form.get('quiz_title')
-    description = request.form.get('quiz_description')
-    topics = request.form.get('quiz_topics')
-    category = request.form.get('quiz_category')
-    strand = request.form.get('strand')
-    author_first_name = request.form.get('author_first_name', '')
-    author_last_name = request.form.get('author_last_name', '')
-    grade_level = request.form.get('grade_level', '')
+        return redirect(url_for('admin_login'))
     
-    if not all([title, description, topics, category, strand]):
-        flash('Please fill in all required fields', 'error')
-        return redirect(url_for('admin_dashboard'))
-    
-    # Generate a unique ID
-    quiz_id = ''.join(random.choices(string.digits, k=4))
-    
-    # Create quiz object
-    quiz = {
-        'id': quiz_id,
-        'title': title,
-        'description': description,
-        'topics': topics,
-        'category': category,
-        'strand': strand,
-        'timestamp': datetime.now().isoformat(),
-        'questions': []
-    }
-    
-    # Add author info if provided
-    if author_first_name or author_last_name:
-        quiz['author'] = {
-            'first_name': author_first_name,
-            'last_name': author_last_name
+    try:
+        quiz_title = request.form.get('quiz_title')
+        quiz_description = request.form.get('quiz_description')
+        quiz_topics = request.form.get('quiz_topics')
+        strand = request.form.get('strand')
+        author_first_name = request.form.get('author_first_name', '')
+        author_last_name = request.form.get('author_last_name', '')
+        grade_level = request.form.get('grade_level', '')
+        quiz_category = request.form.get('quiz_category', '')
+        
+        if not all([quiz_title, quiz_description, quiz_topics, strand]):
+            flash('Please fill in all required fields', 'error')
+            return redirect(url_for('admin_dashboard'))
+        
+        # Create new quiz
+        new_quiz = {
+            'id': str(uuid.uuid4()),
+            'title': quiz_title,
+            'description': quiz_description,
+            'topics': quiz_topics,
+            'strand': strand,
+            'created_at': datetime.now().isoformat(),
+            'questions': [],
+            'author_first_name': author_first_name,
+            'author_last_name': author_last_name,
+            'grade_level': grade_level,
+            'quiz_category': quiz_category
         }
-    
-    # Add grade level if provided
-    if grade_level:
-        quiz['grade_level'] = grade_level
-    
-    # Save the quiz
-    quizzes = load_quizzes()
-    quizzes.append(quiz)
-    save_quizzes(quizzes)
-    
-    return redirect(url_for('admin_dashboard'))
+        
+        quizzes = load_quizzes()
+        quizzes.append(new_quiz)
+        save_quizzes(quizzes)
+        
+        flash('Quiz created successfully!', 'success')
+        return redirect(url_for('admin_dashboard'))
+    except Exception as e:
+        flash(f'Error creating quiz: {str(e)}', 'error')
+        return redirect(url_for('admin_dashboard'))
 
 @app.route('/nimda/get_quiz_questions/<quiz_id>')
 def get_quiz_questions(quiz_id):
@@ -1181,8 +1126,44 @@ def get_ai_response():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
+@app.route('/nimda/create_teacher', methods=['POST'])
+def create_teacher():
+    if 'admin_logged_in' not in session:
+        return redirect(url_for('admin_login'))
+    
+    username = request.form.get('username')
+    email = request.form.get('email')
+    password = request.form.get('password')
+    
+    if not all([username, email, password]):
+        flash('Please fill in all fields', 'error')
+        return redirect(url_for('admin_dashboard'))
+    
+    users = load_users()
+    if email in users:
+        flash('Email already registered', 'error')
+        return redirect(url_for('admin_dashboard'))
+    
+    # Create teacher account
+    users[email] = {
+        'username': username,
+        'password': generate_password_hash(password, method='pbkdf2:sha256'),
+        'role': 'teacher',
+        'created_at': datetime.now().isoformat()
+    }
+    save_users(users)
+    
+    flash('Teacher account created successfully', 'success')
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/nimda/logout')
+def admin_logout():
+    if 'admin_logged_in' in session:
+        session.pop('admin_logged_in')
+    return redirect(url_for('admin_login'))
+
 init_files()
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5002))
+    port = int(os.environ.get('PORT', 5003))
     app.run(host='0.0.0.0', port=port, debug=True)

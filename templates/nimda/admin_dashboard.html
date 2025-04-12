@@ -500,55 +500,227 @@ body {
         .reset-btn:hover {
             color: #1d4ed8;
         }
+
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background: #f3f4f6;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .logout-btn {
+            padding: 8px 15px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .admin-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            padding: 20px;
+        }
+        
+        .admin-section {
+            flex: 1;
+            min-width: 300px;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .teacher-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .form-group label {
+            font-weight: 500;
+        }
+        
+        .form-group input {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        button[type="submit"] {
+            padding: 10px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.4);
+            animation: fadeIn 0.3s;
+        }
+        
+        .modal-content {
+            background-color: #fff;
+            margin: 15% auto;
+            padding: 30px;
+            width: 400px;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            text-align: center;
+            animation: slideIn 0.3s;
+        }
+        
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        
+        .close:hover {
+            color: #333;
+        }
+        
+        .modal-icon {
+            font-size: 4rem;
+            color: #4CAF50;
+            margin-bottom: 20px;
+        }
+        
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .modal-message {
+            color: #666;
+            margin-bottom: 20px;
+        }
+        
+        @keyframes fadeIn {
+            from {opacity: 0;}
+            to {opacity: 1;}
+        }
+        
+        @keyframes slideIn {
+            from {transform: translateY(-50px); opacity: 0;}
+            to {transform: translateY(0); opacity: 1;}
+        }
     </style>
 </head>
 <body>
-    <h2>Admin Dashboard</h2>
+    <header class="admin-header">
+        <h2>{% if is_teacher %}Teacher Dashboard{% else %}Admin Dashboard{% endif %}</h2>
+        <a href="{{ url_for('admin_logout') }}" class="logout-btn">Logout</a>
+    </header>
 
-    <!-- Quiz Form -->
-    <h3>Create a New Quiz</h3>
-    <form id="quizForm" action="/nimda/post_quiz" method="post">
-        <label for="quiz_title">Title or Objective:</label>
-        <input type="text" id="quiz_title" name="quiz_title" required>
-        
-        <label for="quiz_description">Description:</label>
-        <textarea id="quiz_description" name="quiz_description" rows="3" required></textarea>
-        
-        <label for="quiz_topics">Topics Covered:</label>
-        <textarea id="quiz_topics" name="quiz_topics" rows="2" required></textarea>
-        
-        <label for="author_first_name">Author First Name:</label>
-        <input type="text" id="author_first_name" name="author_first_name" placeholder="e.g., Henri">
-        
-        <label for="author_last_name">Author Last Name:</label>
-        <input type="text" id="author_last_name" name="author_last_name" placeholder="e.g., Leon">
-        
-        <label for="grade_level">Grade Level:</label>
-        <select id="grade_level" name="grade_level" required>
-            <option value="">Select Grade Level</option>
-            <option value="Grade 11">Grade 11</option>
-            <option value="Grade 12">Grade 12</option>
-            <option value="Grade 11-12">Grade 11-12</option>
-        </select>
-        
-        <label for="strand">Strand:</label>
-        <select id="strand" name="strand" required>
-            <option value="">Select a strand</option>
-            <option value="STEM">STEM</option>
-            <option value="HUMSS">HUMSS</option>
-            <option value="ABM">ABM</option>
-            <option value="ICT">ICT</option>
-            <option value="TVL">TVL</option>
-        </select>
+    <!-- Success Modal -->
+    <div id="successModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div class="modal-icon">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div class="modal-title">Success!</div>
+            <div class="modal-message" id="successMessage">Action completed successfully.</div>
+        </div>
+    </div>
 
-        <label for="quiz_category">Category:</label>
-        <select id="quiz_category" name="quiz_category" required>
-            <option value="">Select a category</option>
-        </select>
+    <div class="admin-container">
+        {% if not is_teacher %}
+        <div class="admin-section">
+            <h3>Create Teacher Account</h3>
+            <form action="{{ url_for('create_teacher') }}" method="post" class="teacher-form">
+                <div class="form-group">
+                    <label for="teacher_username">Username:</label>
+                    <input type="text" id="teacher_username" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="teacher_email">Email:</label>
+                    <input type="email" id="teacher_email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="teacher_password">Password:</label>
+                    <input type="password" id="teacher_password" name="password" required>
+                </div>
+                <button type="submit">Create Teacher Account</button>
+            </form>
+        </div>
+        {% endif %}
+        
+        <div class="admin-section">
+            <!-- Quiz Form -->
+            <h3>Create a New Quiz</h3>
+            <form id="quizForm" action="/nimda/post_quiz" method="post">
+                <label for="quiz_title">Title or Objective:</label>
+                <input type="text" id="quiz_title" name="quiz_title" required>
+                
+                <label for="quiz_description">Description:</label>
+                <textarea id="quiz_description" name="quiz_description" rows="3" required></textarea>
+                
+                <label for="quiz_topics">Topics Covered:</label>
+                <textarea id="quiz_topics" name="quiz_topics" rows="2" required></textarea>
+                
+                <label for="author_first_name">Author First Name:</label>
+                <input type="text" id="author_first_name" name="author_first_name" placeholder="e.g., Henri">
+                
+                <label for="author_last_name">Author Last Name:</label>
+                <input type="text" id="author_last_name" name="author_last_name" placeholder="e.g., Leon">
+                
+                <label for="grade_level">Grade Level:</label>
+                <select id="grade_level" name="grade_level" required>
+                    <option value="">Select Grade Level</option>
+                    <option value="Grade 11">Grade 11</option>
+                    <option value="Grade 12">Grade 12</option>
+                    <option value="Grade 11-12">Grade 11-12</option>
+                </select>
+                
+                <label for="strand">Strand:</label>
+                <select id="strand" name="strand" required>
+                    <option value="">Select a strand</option>
+                    <option value="STEM">STEM</option>
+                    <option value="HUMSS">HUMSS</option>
+                    <option value="ABM">ABM</option>
+                    <option value="ICT">ICT</option>
+                    <option value="TVL">TVL</option>
+                </select>
 
-        <button type="submit">Create Quiz</button>
-    </form>
+                <label for="quiz_category">Category:</label>
+                <select id="quiz_category" name="quiz_category" required>
+                    <option value="">Select a category</option>
+                </select>
 
+                <button type="submit">Create Quiz</button>
+            </form>
+        </div>
+    </div>
+    
     <h3>Posted Quizzes</h3>
     <ul>
         {% for quiz in quizzes %}
@@ -779,15 +951,10 @@ body {
                 case 'short_answer':
                     fieldsHTML = `
                         <div class="short-answer-container">
-                            <label>Correct Answer:</label>
-                            <input type="text" name="short_answer_${questionIndex}" required>
-                            
-                            <div class="feature-toggle">
-                                <label>
-                                    <input type="checkbox" name="ai_detection_${questionIndex}"> 
-                                    Enable AI Detection & Anti-Plagiarism
-                                </label>
-                            </div>
+                            <label for="short_answer_correct_${questionIndex}">Correct Answer:</label>
+                            <input type="text" id="short_answer_correct_${questionIndex}" 
+                                   name="short_answer_correct_${questionIndex}" required
+                                   placeholder="Enter the correct answer">
                         </div>
                     `;
                     break;
@@ -858,21 +1025,6 @@ body {
                 case 'essay':
                     fieldsHTML = `
                         <div class="essay-container">
-                            <div class="feature-toggles">
-                                <div class="feature-toggle">
-                                    <label>
-                                        <input type="checkbox" name="essay_ai_detection_${questionIndex}"> 
-                                        Enable AI Detection
-                                    </label>
-                                </div>
-                                <div class="feature-toggle">
-                                    <label>
-                                        <input type="checkbox" name="essay_plagiarism_${questionIndex}"> 
-                                        Enable Anti-Plagiarism
-                                    </label>
-                                </div>
-                            </div>
-                            
                             <div class="word-limit">
                                 <label>Word Limit:</label>
                                 <input type="number" name="essay_word_limit_${questionIndex}" value="500" min="50" max="2000">
@@ -1165,12 +1317,7 @@ body {
                             });
                         }
                         else if (question.question_type === 'essay') {
-                            const aiDetectionInput = fieldsContainer.querySelector(`input[name="essay_ai_detection_${index}"]`);
-                            const plagiarismInput = fieldsContainer.querySelector(`input[name="essay_plagiarism_${index}"]`);
                             const wordLimitInput = fieldsContainer.querySelector(`input[name="essay_word_limit_${index}"]`);
-                            
-                            if (aiDetectionInput) aiDetectionInput.checked = question.ai_detection || false;
-                            if (plagiarismInput) plagiarismInput.checked = question.anti_plagiarism || false;
                             if (wordLimitInput) wordLimitInput.value = question.word_limit || 500;
                         }
                     });
@@ -1292,7 +1439,30 @@ body {
                         formData.append(`ai_detection_${questionIndex}`, 'on');
                     }
                 }
-                // Add other question types as needed
+                else if (questionType === 'fill_blank') {
+                    // Get all blank answers
+                    const blankAnswers = block.querySelectorAll(`input[name="fill_blank_answers_${questionIndex}[]"]`);
+                    blankAnswers.forEach((input) => {
+                        formData.append(`fill_blank_answers_${questionIndex}[]`, input.value);
+                    });
+                }
+                else if (questionType === 'matching') {
+                    // Get all matching pairs
+                    const matchingPairs = block.querySelectorAll(`select[name="matching_pairs_${questionIndex}[]"]`);
+                    matchingPairs.forEach((select) => {
+                        const selectedValue = select.value;
+                        formData.append(`matching_pairs_${questionIndex}[]`, selectedValue);
+                    });
+                }
+                else if (questionType === 'essay') {
+                    const wordLimit = parseInt(document.querySelector(`input[name="essay_word_limit_${questionIndex}"]`).value);
+                    
+                    questionData = {
+                        question_type: 'essay',
+                        question: questionText,
+                        word_limit: wordLimit || 500
+                    };
+                }
             });
 
             // Debug: Log FormData entries
@@ -1419,6 +1589,40 @@ body {
             quizToReset = null;
             quizTitle = null;
         });
+
+        // Check if there are any flash messages and show them in the modal
+        document.addEventListener('DOMContentLoaded', function() {
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        showModal("{{ message }}");
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            // Close modal when clicking the X
+            document.querySelector('.close').addEventListener('click', function() {
+                document.getElementById('successModal').style.display = 'none';
+            });
+            
+            // Close modal when clicking outside of it
+            window.addEventListener('click', function(event) {
+                if (event.target == document.getElementById('successModal')) {
+                    document.getElementById('successModal').style.display = 'none';
+                }
+            });
+        });
+        
+        // Function to show the success modal
+        function showModal(message) {
+            document.getElementById('successMessage').textContent = message;
+            document.getElementById('successModal').style.display = 'block';
+            
+            // Auto hide after 3 seconds
+            setTimeout(function() {
+                document.getElementById('successModal').style.display = 'none';
+            }, 3000);
+        }
     </script>
 </body>
 </html>
