@@ -15,11 +15,29 @@ import numpy as np
 import cv2
 import io
 import uuid
+import pymysql  # Add MySQL connector
 
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv('FLASK_SECRET_KEY')
+
+# Database configuration
+DB_HOST = os.getenv('DB_HOST', 'localhost')
+DB_USER = os.getenv('DB_USER', 'root')
+DB_PASSWORD = os.getenv('DB_PASSWORD', '')
+DB_NAME = os.getenv('DB_NAME', 'quiz_app')
+
+# Database connection function
+def get_db_connection():
+    conn = pymysql.connect(
+        host=DB_HOST,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        database=DB_NAME,
+        cursorclass=pymysql.cursors.DictCursor
+    )
+    return conn
 
 # Register custom filters
 @app.template_filter('datetime')
@@ -37,6 +55,7 @@ EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD')
 # DeepSeek API key - load from environment variable or use default for development
 DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY', "sk-289d0e34995441d9b01e878fbaa61e2b")
 
+# Legacy file-based storage (will be deprecated)
 USERS_FILE = 'users.txt'
 STORIES_FILE = 'database.txt'
 QUIZZES_FILE = 'quizzes.txt' 
@@ -52,6 +71,73 @@ def init_files():
         with open(QUIZZES_FILE, 'w') as f:
             json.dump([], f)
 
+# Database user management functions
+def get_user_by_email(email):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+            user = cursor.fetchone()
+            return user
+    finally:
+        conn.close()
+
+def create_user(username, fullname, lrn, email, password, strand):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
+            cursor.execute(
+                "INSERT INTO users (username, fullname, lrn, email, password, strand) VALUES (%s, %s, %s, %s, %s, %s)",
+                (username, fullname, lrn, email, hashed_password, strand)
+            )
+        conn.commit()
+        return True
+    except pymysql.MySQLError as e:
+        print(f"Database error: {e}")
+        return False
+    finally:
+        conn.close()
+
+def update_user(email, data):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            # Build update query dynamically based on provided data
+            fields = []
+            values = []
+            for key, value in data.items():
+                fields.append(f"{key} = %s")
+                values.append(value)
+            
+            if not fields:
+                return False
+                
+            values.append(email)  # For the WHERE clause
+            query = f"UPDATE users SET {', '.join(fields)} WHERE email = %s"
+            cursor.execute(query, values)
+        conn.commit()
+        return True
+    except pymysql.MySQLError as e:
+        print(f"Database error: {e}")
+        return False
+    finally:
+        conn.close()
+
+def delete_user(email):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("DELETE FROM users WHERE email = %s", (email,))
+        conn.commit()
+        return True
+    except pymysql.MySQLError as e:
+        print(f"Database error: {e}")
+        return False
+    finally:
+        conn.close()
+
+# Legacy file functions (can be deprecated once migration is complete)
 def load_users():
     try:
         with open(USERS_FILE, 'r') as f:
@@ -166,8 +252,9 @@ def signup():
         flash('Please fill in all fields', 'error')
         return redirect(url_for('index'))
 
-    users = load_users()
-    if email in users:
+    # Check if user already exists in database
+    existing_user = get_user_by_email(email)
+    if existing_user:
         flash('Email already registered', 'error')
         return redirect(url_for('index'))
 
@@ -208,17 +295,17 @@ def verify_otp():
         flash('Invalid OTP. Please try again', 'error')
         return render_template('verify_otp.html', email=signup_data['email'])
 
-    users = load_users()
-    users[signup_data['email']] = {
-        'username': signup_data['username'],
-        'fullname': signup_data['fullname'],
-        'lrn': signup_data['lrn'],
-        'password': generate_password_hash(signup_data['password'], method='pbkdf2:sha256'),
-        'strand': signup_data['strand'],
-        'created_at': datetime.now().isoformat(),
-        'quiz_history': []  # Initialize quiz history
-    }
-    save_users(users)
+    # Create user in the database
+    if not create_user(
+        signup_data['username'],
+        signup_data['fullname'],
+        signup_data['lrn'],
+        signup_data['email'],
+        signup_data['password'],
+        signup_data['strand']
+    ):
+        flash('Error creating account, please try again', 'error')
+        return redirect(url_for('index'))
 
     session.pop('signup_data', None)
     session['user_email'] = signup_data['email']
@@ -257,12 +344,12 @@ def login():
         flash('Please fill in all fields', 'error')
         return redirect(url_for('index'))
 
-    users = load_users()
-    if email not in users:
+    # Get user from database
+    user = get_user_by_email(email)
+    if not user:
         flash('Invalid email or password', 'error')
         return redirect(url_for('index'))
 
-    user = users[email]
     if not check_password_hash(user['password'], password):
         flash('Invalid email or password', 'error')
         return redirect(url_for('index'))
@@ -997,65 +1084,82 @@ def get_categories(strand):
 def account_settings():
     if 'user_email' not in session:
         return redirect(url_for('index'))
-
-    users = load_users()
-    user = users[session['user_email']]
-
-    # Get account creation date
-    account_created = user.get('created_at', None)
-    if account_created:
-        try:
-            account_created = datetime.fromisoformat(account_created).strftime('%B %d, %Y')
-        except:
-            account_created = 'N/A'
-
-    # Get number of completed quizzes
-    user_quiz_history = user.get('quiz_history', [])
-    completed_quizzes = len(user_quiz_history)
-
-    return render_template('account_settings.html',
-                          username=session['username'],
-                          strand=session['strand'],
-                          account_created=account_created,
-                          completed_quizzes=completed_quizzes)
+    
+    email = session['user_email']
+    user = get_user_by_email(email)
+    
+    if not user:
+        session.clear()
+        return redirect(url_for('index'))
+    
+    # Get the number of completed quizzes
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) as count FROM quiz_attempts WHERE user_id = %s", (user['id'],))
+            result = cursor.fetchone()
+            completed_quizzes = result['count'] if result else 0
+    except pymysql.MySQLError as e:
+        completed_quizzes = 0
+    finally:
+        conn.close()
+    
+    return render_template(
+        'account_settings.html',
+        username=user['username'],
+        strand=user['strand'],
+        account_created=user['created_at'],
+        completed_quizzes=completed_quizzes
+    )
 
 @app.route('/update_account', methods=['POST'])
 def update_account():
     if 'user_email' not in session:
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify({'success': False, 'message': 'Not logged in'})
-        return redirect(url_for('index'))
-
+        return jsonify({"success": False, "message": "Not logged in"})
+    
+    email = session['user_email']
+    user = get_user_by_email(email)
+    
+    if not user:
+        return jsonify({"success": False, "message": "User not found"})
+    
     new_username = request.form.get('username')
-    if not new_username or len(new_username) < 3:
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify({'success': False, 'message': 'Username must be at least 3 characters long'})
-        flash('Username must be at least 3 characters long', 'error')
-        return redirect(url_for('account_settings'))
-
-    users = load_users()
-    users[session['user_email']]['username'] = new_username
-    session['username'] = new_username
-    save_users(users)
-
-    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return jsonify({'success': True, 'message': 'Account updated successfully'})
-
-    flash('Account updated successfully', 'success')
-    return redirect(url_for('account_settings'))
+    current_password = request.form.get('current_password')
+    new_password = request.form.get('new_password')
+    
+    data = {}
+    
+    if new_username and new_username != user['username']:
+        data['username'] = new_username
+        session['username'] = new_username
+    
+    if current_password and new_password:
+        if not check_password_hash(user['password'], current_password):
+            return jsonify({"success": False, "message": "Current password is incorrect"})
+        
+        data['password'] = generate_password_hash(new_password, method='pbkdf2:sha256')
+    
+    if data:
+        if update_user(email, data):
+            return jsonify({"success": True, "message": "Account updated successfully"})
+        else:
+            return jsonify({"success": False, "message": "Failed to update account"})
+    
+    return jsonify({"success": True, "message": "No changes made"})
 
 @app.route('/delete_account')
 def delete_account():
     if 'user_email' not in session:
         return redirect(url_for('index'))
-
-    users = load_users()
-    if session['user_email'] in users:
-        del users[session['user_email']]
-        save_users(users)
-
-    session.clear()
-    flash('Your account has been deleted', 'success')
+    
+    email = session['user_email']
+    
+    if delete_user(email):
+        session.clear()
+        flash('Your account has been deleted', 'success')
+    else:
+        flash('Failed to delete account', 'error')
+    
     return redirect(url_for('index'))
 
 @app.route('/get_ai_response', methods=['POST'])
