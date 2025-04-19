@@ -368,28 +368,57 @@ def login():
 @app.route('/dashboard')
 def dashboard():
     if 'user_email' not in session:
-        flash('Please log in to access the dashboard', 'error')
+        flash('Please log in to access your dashboard', 'error')
         return redirect(url_for('index'))
     
-    strand = session.get('strand')
+    # Get user information from database
+    user = get_user_by_email(session['user_email'])
+    if not user:
+        flash('User not found', 'error')
+        return redirect(url_for('index'))
+    
+    # Load quizzes
     quizzes = load_quizzes()
     
-    # Organize quizzes by subject/category for better display
-    organized_quizzes = {}
+    # Get quiz attempts from database for this user
+    quiz_stats = {}
+    total_quizzes_completed = 0
     
-    for quiz in quizzes:
-        category = quiz.get('quiz_category', 'Uncategorized')
-        if category not in organized_quizzes:
-            organized_quizzes[category] = []
-        
-        # Check if the quiz is meant for the user's strand
-        if quiz.get('strand', '') == strand or quiz.get('strand', '') == '':
-            organized_quizzes[category].append(quiz)
+    try:
+        conn = get_db_connection()
+        with conn.cursor(pymysql.cursors.DictCursor) as cursor:
+            # Get all user quiz attempts
+            cursor.execute(
+                """SELECT quiz_id, score, passed FROM quiz_attempts 
+                   WHERE user_id = %s""",
+                (user['id'])
+            )
+            attempts = cursor.fetchall()
+            
+            # Count total completed quizzes
+            total_quizzes_completed = len(attempts)
+            
+            # Group attempts by quiz_id to find highest score for each quiz
+            for attempt in attempts:
+                quiz_id = attempt['quiz_id']
+                score = attempt['score']
+                passed = attempt['passed']
+                
+                if quiz_id not in quiz_stats or score > quiz_stats[quiz_id]['score']:
+                    quiz_stats[quiz_id] = {
+                        'score': score,
+                        'passed': passed
+                    }
+        conn.close()
+    except Exception as e:
+        print(f"Error fetching quiz attempts: {e}")
     
-    return render_template('dashboard_new.html', 
-                           username=session.get('username'), 
-                           strand=strand,
-                           organized_quizzes=organized_quizzes)
+    return render_template('dashboard.html', 
+        user=user, 
+        quizzes=quizzes, 
+        total_quizzes_completed=total_quizzes_completed,
+        quiz_stats=quiz_stats
+    )
 
 @app.route('/update_username', methods=['POST'])
 def update_username():
@@ -486,6 +515,29 @@ def start_quiz(quiz_id):
     if 'user_email' not in session:
         return redirect(url_for('index'))
     
+    # Get user information
+    user = get_user_by_email(session['user_email'])
+    if not user:
+        flash('User not found', 'error')
+        return redirect(url_for('dashboard'))
+    
+    # Check if the user has already completed this quiz
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT * FROM quiz_attempts WHERE user_id = %s AND quiz_id = %s", 
+                (user['id'], quiz_id)
+            )
+            existing_attempt = cursor.fetchone()
+            if existing_attempt:
+                flash('You have already taken this quiz. Each quiz can only be taken once.', 'error')
+                return redirect(url_for('dashboard'))
+    except Exception as e:
+        print(f"Error checking quiz attempts: {e}")
+    finally:
+        conn.close()
+    
     quizzes = load_quizzes()
     quiz = next((q for q in quizzes if q['id'] == quiz_id), None)
     
@@ -527,129 +579,146 @@ def start_quiz(quiz_id):
 @app.route('/submit-quiz', methods=['POST'])
 def submit_quiz():
     if 'user_email' not in session:
-        flash('Please log in to take quizzes', 'error')
-        return redirect(url_for('index'))
+        return jsonify({'error': 'User not logged in'}), 401
     
+    user = get_user_by_email(session['user_email'])
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    # Get quiz data from the form
     quiz_id = request.form.get('quiz_id')
-    timeout = request.form.get('timeout') == 'true'
     
+    # Check if user has already completed this quiz
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT id FROM quiz_attempts WHERE user_id = %s AND quiz_id = %s",
+                (user['id'], quiz_id)
+            )
+            existing_attempt = cursor.fetchone()
+            if existing_attempt:
+                conn.close()
+                return jsonify({'error': 'You have already taken this quiz. Each quiz can only be taken once.'}), 403
+        conn.close()
+    except Exception as e:
+        print(f"Error checking quiz attempts: {e}")
+        return jsonify({'error': 'Database error'}), 500
+    
+    # Load the quiz
     quizzes = load_quizzes()
     quiz = None
-    
     for q in quizzes:
         if q['id'] == quiz_id:
             quiz = q
             break
     
     if not quiz:
-        flash('Quiz not found', 'error')
-        return redirect(url_for('dashboard'))
+        return jsonify({'error': 'Quiz not found'}), 404
     
-    # Initialize results
-    correct_count = 0
-    total_questions = len(quiz['questions'])
-    question_results = []
+    # Process and score answers
+    questions = quiz.get('questions', [])
+    total_score = 0
+    possible_score = 0
+    answers = {}
     
-    # Process each question based on type
-    for i, question in enumerate(quiz['questions']):
-        question_type = question.get('question_type', 'multiple_choice')  # Default to multiple choice for old quizzes
-        user_answer = None
-        is_correct = False
-        feedback = ""
+    for question in questions:
+        question_id = question.get('id')
+        question_type = question.get('type')
+        correct_answer = question.get('answer')
+        points = question.get('points', 1)  # Default to 1 point if not specified
+        possible_score += points
         
-        # Get user's answer based on question type
-        if question_type == 'multiple_choice':
-            user_answer = request.form.get(f'answer_{i}')
-            if user_answer is not None:
-                user_answer = int(user_answer)
-                is_correct = user_answer == question['correct_answer']
+        user_answer = request.form.get(f'question_{question_id}', '')
+        answers[question_id] = user_answer
         
-        elif question_type == 'true_false':
-            user_answer = request.form.get(f'answer_{i}')
-            is_correct = user_answer == question['correct_answer']
+        # Score based on question type
+        if question_type == 'multiple_choice' or question_type == 'true_false':
+            if user_answer == correct_answer:
+                total_score += points
         
-        elif question_type == 'short_answer':
-            user_answer = request.form.get(f'answer_{i}', '').strip()
-            
-            # Basic check for correctness (case sensitive)
-            is_correct = user_answer == question['correct_answer']
-        
-        elif question_type == 'fill_blank':
-            user_answer = request.form.get(f'answer_{i}', '').strip()
-            
-            # Check if answer is correct (case insensitive)
-            is_correct = user_answer.lower() == question['correct_answer'].lower()
+        elif question_type == 'short_answer' or question_type == 'fill_in_the_blank':
+            # Case-insensitive exact match
+            if user_answer.lower() == correct_answer.lower():
+                total_score += points
+            else:
+                # Check for partial credit - keywords in correct answer
+                keywords = [kw.strip().lower() for kw in correct_answer.split() if len(kw.strip()) > 3]
+                if keywords:
+                    matched_keywords = 0
+                    user_answer_lower = user_answer.lower()
+                    
+                    for keyword in keywords:
+                        if keyword in user_answer_lower:
+                            matched_keywords += 1
+                    
+                    # Give partial credit based on keyword matches
+                    if matched_keywords > 0:
+                        keyword_ratio = matched_keywords / len(keywords)
+                        if keyword_ratio >= 0.7:  # If 70% or more keywords match
+                            total_score += points * 0.8  # 80% credit
+                        elif keyword_ratio >= 0.5:  # If 50% or more keywords match
+                            total_score += points * 0.5  # 50% credit
+                
+                # For very short answers, check Levenshtein distance
+                if len(correct_answer) <= 20 and len(user_answer) > 0:
+                    # Calculate similarity ratio
+                    max_distance = max(len(correct_answer), len(user_answer))
+                    if max_distance > 0:
+                        distance = levenshtein_distance(user_answer.lower(), correct_answer.lower())
+                        similarity = 1 - (distance / max_distance)
+                        
+                        # If similarity is high (>85%) but not already awarded full points
+                        if similarity >= 0.85 and total_score < points:
+                            total_score += points * 0.9  # 90% credit for very close answers
         
         elif question_type == 'matching':
-            # Get all selected options for this matching question
-            user_answers = {}
-            for key, value in request.form.items():
-                if key.startswith(f'match_{i}_'):
-                    item_index = key.split('_')[2]
-                    user_answers[item_index] = value
-            
-            user_answer = user_answers
-            
-            # Check if all matching items are correct
-            is_correct = True
-            for item_index, selected_value in user_answers.items():
-                correct_value = question['matching_pairs'][int(item_index)]['match']
-                if selected_value != correct_value:
-                    is_correct = False
-                    break
-        
-        elif question_type == 'essay':
-            user_answer = request.form.get(f'answer_{i}', '').strip()
-            
-            # Essays are usually graded manually, mark as "needs review"
-            is_correct = None
-            feedback = "Essay will be reviewed by the instructor."
-        
-        # Add to correct count if answer is correct
-        if is_correct:
-            correct_count += 1
-        
-        # Store the result for this question
-        question_results.append({
-            'question': question['question'],
-            'question_type': question_type,
-            'user_answer': user_answer,
-            'correct_answer': question.get('correct_answer'),
-            'is_correct': is_correct,
-            'feedback': feedback
-        })
+            # For matching, answer format is expected to be JSON
+            try:
+                user_matches = json.loads(user_answer) if user_answer else {}
+                correct_matches = json.loads(correct_answer) if correct_answer else {}
+                
+                if user_matches and correct_matches:
+                    match_count = 0
+                    for key, value in user_matches.items():
+                        if key in correct_matches and correct_matches[key] == value:
+                            match_count += 1
+                    
+                    # Calculate partial credit based on correct matches
+                    if match_count > 0 and len(correct_matches) > 0:
+                        match_ratio = match_count / len(correct_matches)
+                        total_score += points * match_ratio
+            except:
+                # If there was an error parsing JSON, no points awarded
+                pass
     
-    # Calculate score as percentage
-    score = (correct_count / total_questions) * 100 if total_questions > 0 else 0
+    # Calculate percentage score
+    percentage_score = (total_score / possible_score * 100) if possible_score > 0 else 0
+    passed = percentage_score >= 70  # Consider 70% as passing score
     
-    # Get user information
-    users = load_users()
-    user_email = session['user_email']
-    user = users.get(user_email)
+    # Record quiz attempt in database
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """INSERT INTO quiz_attempts 
+                   (user_id, quiz_id, score, passed, answers) 
+                   VALUES (%s, %s, %s, %s, %s)""",
+                (user['id'], quiz_id, percentage_score, passed, json.dumps(answers))
+            )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Error recording quiz attempt: {e}")
     
-    if not user:
-        flash('User not found', 'error')
-        return redirect(url_for('dashboard'))
-    
-    # Create quiz result record
-    result = {
-        'quiz_id': quiz_id,
-        'quiz_title': quiz['title'],
-        'timestamp': datetime.now().isoformat(),
-        'score': score,
-        'question_results': question_results,
-        'timeout': timeout
+    # Store result in session
+    session['quiz_result'] = {
+        'score': round(percentage_score, 1),
+        'passed': passed,
+        'quiz_id': quiz_id
     }
     
-    # Add result to user's quiz history
-    if 'quiz_history' not in user:
-        user['quiz_history'] = []
-    
-    user['quiz_history'].append(result)
-    save_users(users)
-    
-    # Redirect to results page
-    return redirect(url_for('quiz_results', quiz_id=quiz_id, result_index=len(user['quiz_history']) - 1))
+    return redirect(url_for('show_results', score=round(percentage_score, 1)))
 
 @app.route('/quiz-results')
 def quiz_results():
