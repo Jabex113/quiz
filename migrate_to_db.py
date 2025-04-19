@@ -18,14 +18,101 @@ USERS_FILE = 'users.txt'
 QUIZZES_FILE = 'quizzes.txt'
 
 def get_db_connection():
-    conn = pymysql.connect(
-        host=DB_HOST,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        database=DB_NAME,
-        cursorclass=pymysql.cursors.DictCursor
+    try:
+        # First, try to connect to the specific database
+        conn = pymysql.connect(
+            host=DB_HOST,
+            user=DB_USER,
+            password=DB_PASSWORD,
+            database=DB_NAME,
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        return conn
+    except pymysql.err.OperationalError as e:
+        # If database doesn't exist, connect without specifying database
+        if e.args[0] == 1049:  # 1049 is the MySQL error code for "Unknown database"
+            conn = pymysql.connect(
+                host=DB_HOST,
+                user=DB_USER,
+                password=DB_PASSWORD,
+                cursorclass=pymysql.cursors.DictCursor
+            )
+            cursor = conn.cursor()
+            cursor.execute(f"CREATE DATABASE IF NOT EXISTS {DB_NAME}")
+            conn.commit()
+            cursor.execute(f"USE {DB_NAME}")
+            
+            # Create required tables
+            create_tables(cursor)
+            conn.commit()
+            
+            return conn
+        else:
+            # Re-raise the error if it's not about unknown database
+            raise
+
+def create_tables(cursor):
+    """Create all required tables if they don't exist"""
+    
+    # Create users table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        email VARCHAR(255) NOT NULL UNIQUE,
+        username VARCHAR(100) NOT NULL,
+        fullname VARCHAR(255) NOT NULL,
+        lrn VARCHAR(50) NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        strand VARCHAR(50) NOT NULL,
+        role ENUM('student', 'teacher', 'admin') DEFAULT 'student',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
-    return conn
+    """)
+    
+    # Create quizzes table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS quizzes (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        description TEXT,
+        category VARCHAR(100) NOT NULL,
+        strand VARCHAR(50) NOT NULL,
+        created_by VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        time_limit INT DEFAULT 0,
+        passing_score INT DEFAULT 60
+    )
+    """)
+    
+    # Create questions table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS quiz_questions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        quiz_id INT NOT NULL,
+        question TEXT NOT NULL,
+        question_type ENUM('multiple_choice', 'true_false', 'essay') NOT NULL,
+        options JSON,
+        correct_answer TEXT,
+        points INT DEFAULT 1,
+        FOREIGN KEY (quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE
+    )
+    """)
+    
+    # Create quiz attempts table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS quiz_attempts (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        quiz_id INT NOT NULL,
+        start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        end_time TIMESTAMP NULL,
+        score DECIMAL(5,2) DEFAULT 0,
+        passed BOOLEAN DEFAULT FALSE,
+        answers JSON,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE
+    )
+    """)
 
 def migrate_users():
     try:

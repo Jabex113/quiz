@@ -20,7 +20,6 @@ A powerful assessment builder for teachers with comprehensive features for creat
 
 3. **Short Answer**
    - Define expected answers
-   - AI detection & anti-plagiarism features
 
 4. **Fill in the Blank**
    - Create questions with blank spaces
@@ -32,8 +31,6 @@ A powerful assessment builder for teachers with comprehensive features for creat
 
 6. **Essay**
    - Long-form answers
-   - AI detection features
-   - Anti-plagiarism features
    - Word limit setting
 
 ### Time Management
@@ -44,8 +41,6 @@ A powerful assessment builder for teachers with comprehensive features for creat
 
 ### Academic Integrity
 - Webcam monitoring during exams
-- AI-generated content detection
-- Plagiarism detection
 - Detailed reporting of potential issues
 
 ### Results and Analysis
@@ -108,7 +103,6 @@ This project is licensed under the MIT License
    - `EMAIL_PASSWORD`: Your email app password 
    - `FLASK_SECRET_KEY`: A random string for session security
    - `VERCEL`: Set to "true"
-   - `DEEPSEEK_API_KEY`: API key for DeepSeek AI functionality
 
 5. Deploy the project
 

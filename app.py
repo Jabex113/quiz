@@ -673,29 +673,8 @@ def check_ai_content(text):
     Returns a score between 0 and 1 where higher values indicate
     more likely AI-generated content.
     """
-    # Simple implementation using DeepSeek API
-    try:
-        url = "https://api.deepseek.com/v1/detection"
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {DEEPSEEK_API_KEY}"
-        }
-        
-        payload = {
-            "model": "deepseek-ai-detector",
-            "text": text,
-        }
-        
-        response = requests.post(url, headers=headers, json=payload)
-        result = response.json()
-        
-        # Extract the AI probability score
-        ai_score = result.get('result', {}).get('ai_probability', 0)
-        
-        return ai_score
-    except Exception as e:
-        print(f"Error checking AI content: {e}")
-        return 0  # Default to no AI content on error
+    # Simple placeholder implementation
+    return 0  # Always return 0 (no AI content detected)
 
 def check_plagiarism(text):
     """
@@ -1167,68 +1146,7 @@ def get_ai_response():
     if 'user_email' not in session:
         return jsonify({'success': False, 'error': 'Not logged in'})
 
-    try:
-        data = request.json
-        user_message = data.get('message', '')
-        chat_history = data.get('history', [])
-
-        # Prepare the API request
-        api_url = "https://api.deepseek.com/chat/completions"  # Updated to use the base URL without v1
-
-        # Format messages for the API
-        messages = chat_history
-
-        # Add user context information
-        system_message = f"You are a helpful AI assistant for students. The current user is {session['username']}, who is studying {session['strand']}. Provide concise, accurate information about academic subjects, study tips, and educational resources. Be friendly and supportive."
-
-        # Update or add system message
-        if messages and messages[0]['role'] == 'system':
-            messages[0]['content'] = system_message
-        else:
-            messages.insert(0, {"role": "system", "content": system_message})
-
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {DEEPSEEK_API_KEY}"
-        }
-
-        payload = {
-            "model": "deepseek-chat",  # This will use DeepSeek-V3
-            "messages": messages,
-            "temperature": 0.7,
-            "max_tokens": 1000,
-            "stream": False  # Explicitly set to false for non-streaming response
-        }
-
-        # Make the API request
-        response = requests.post(api_url, headers=headers, json=payload, timeout=30)
-
-        # Check for HTTP errors
-        if response.status_code != 200:
-            error_message = f"API request failed with status code {response.status_code}"
-            try:
-                error_data = response.json()
-                if 'error' in error_data:
-                    error_message = f"API Error: {error_data['error'].get('message', 'Unknown error')}"
-            except:
-                pass
-            return jsonify({'success': False, 'error': error_message})
-
-        response_data = response.json()
-
-        # Extract the AI's response
-        if 'choices' in response_data and len(response_data['choices']) > 0:
-            ai_response = response_data['choices'][0]['message']['content']
-            return jsonify({'success': True, 'response': ai_response})
-        else:
-            return jsonify({'success': False, 'error': 'Invalid API response', 'details': response_data})
-
-    except requests.exceptions.Timeout:
-        return jsonify({'success': False, 'error': 'Request to DeepSeek API timed out. Please try again later.'})
-    except requests.exceptions.ConnectionError:
-        return jsonify({'success': False, 'error': 'Could not connect to DeepSeek API. Please check your internet connection.'})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+    return jsonify({'success': False, 'error': 'AI assistant has been removed'})
 
 @app.route('/nimda/create_teacher', methods=['POST'])
 def create_teacher():
