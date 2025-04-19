@@ -90,7 +90,7 @@ def create_tables(cursor):
         id INT AUTO_INCREMENT PRIMARY KEY,
         quiz_id INT NOT NULL,
         question TEXT NOT NULL,
-        question_type ENUM('multiple_choice', 'true_false', 'essay') NOT NULL,
+        question_type ENUM('multiple_choice', 'true_false', 'short_answer', 'fill_blank', 'matching') NOT NULL,
         options JSON,
         correct_answer TEXT,
         points INT DEFAULT 1,

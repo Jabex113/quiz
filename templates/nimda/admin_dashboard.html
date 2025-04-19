@@ -452,10 +452,7 @@ body {
         
         /* Essay styles */
         .essay-container {
-            padding: 15px;
-            background-color: #f9f9f9;
-            border-radius: 8px;
-            margin-bottom: 15px;
+            display: none; /* Hide essay container since we're removing this question type */
         }
         
         .feature-toggles {
@@ -875,13 +872,12 @@ body {
                 
                 <div class="question-type-selector">
                     <label>Question Type:</label>
-                    <select name="question_types[]" onchange="updateQuestionFields(this, ${questionIndex})" required>
+                    <select id="question_type_${questionIndex}" name="question_types[]" onchange="showQuestionFields(${questionIndex})">
                         <option value="multiple_choice">Multiple Choice</option>
-                        <option value="true_false">True or False</option>
+                        <option value="true_false">True/False</option>
                         <option value="short_answer">Short Answer</option>
                         <option value="fill_blank">Fill in the Blank</option>
                         <option value="matching">Matching</option>
-                        <option value="essay">Essay</option>
                     </select>
                 </div>
                 
@@ -890,7 +886,7 @@ body {
                     <input type="number" name="time_limit_${questionIndex}" value="30" min="10" max="300" required>
                 </div>
 
-                <div class="question-fields" id="question_fields_${questionIndex}">
+                <div class="question-fields" id="fields_container_${questionIndex}">
                     <!-- Question type specific fields will be inserted here -->
                 </div>
             `;
@@ -898,51 +894,78 @@ body {
             container.appendChild(newQuestionBlock);
             
             // Initialize with multiple choice fields
-            updateQuestionFields(newQuestionBlock.querySelector('select[name="question_types[]"]'), questionIndex);
+            showQuestionFields(questionIndex);
         }
 
-        function updateQuestionFields(selectElement, questionIndex) {
-            const questionType = selectElement.value;
-            const fieldsContainer = document.getElementById(`question_fields_${questionIndex}`);
+        function showQuestionFields(questionIndex) {
+            const questionType = document.getElementById(`question_type_${questionIndex}`) || 
+                                 document.getElementById(`edit_question_type_${questionIndex}`);
+            
+            if (!questionType) {
+                console.error(`Question type element not found for index ${questionIndex}`);
+                return;
+            }
+            
+            const fieldsContainer = document.getElementById(`fields_container_${questionIndex}`);
+            if (!fieldsContainer) {
+                console.error(`Fields container not found for index ${questionIndex}`);
+                return;
+            }
+            
+            // Clear previous fields
+            fieldsContainer.innerHTML = '';
             
             let fieldsHTML = '';
             
-            switch(questionType) {
+            // Set fields based on question type
+            switch (questionType.value) {
                 case 'multiple_choice':
                     fieldsHTML = `
-                <div class="options-container">
-                    <label>Options:</label>
-                    <div class="option-input">
-                        <input type="radio" name="correct_answer_${questionIndex}" value="0" required checked>
-                        <input type="text" name="options_${questionIndex}[]" placeholder="Option A" required>
-                    </div>
-                    <div class="option-input">
-                        <input type="radio" name="correct_answer_${questionIndex}" value="1" required>
-                        <input type="text" name="options_${questionIndex}[]" placeholder="Option B" required>
-                    </div>
-                    <div class="option-input">
-                        <input type="radio" name="correct_answer_${questionIndex}" value="2" required>
-                        <input type="text" name="options_${questionIndex}[]" placeholder="Option C" required>
-                    </div>
-                    <div class="option-input">
-                        <input type="radio" name="correct_answer_${questionIndex}" value="3" required>
-                        <input type="text" name="options_${questionIndex}[]" placeholder="Option D" required>
-                    </div>
-                </div>
-            `;
+                        <div class="options-container">
+                            <div class="time-limit-container">
+                                <label>Time Limit (seconds):</label>
+                                <input type="number" name="time_limit_${questionIndex}" value="30" min="10" max="300">
+                            </div>
+                            <div class="options">
+                                <label>Options:</label>
+                                <div class="option-item">
+                                    <input type="text" name="options_${questionIndex}[]" placeholder="Option 1" required>
+                                    <input type="radio" name="correct_answer_${questionIndex}" value="0" checked>
+                                </div>
+                                <div class="option-item">
+                                    <input type="text" name="options_${questionIndex}[]" placeholder="Option 2" required>
+                                    <input type="radio" name="correct_answer_${questionIndex}" value="1">
+                                </div>
+                                <div class="option-item">
+                                    <input type="text" name="options_${questionIndex}[]" placeholder="Option 3" required>
+                                    <input type="radio" name="correct_answer_${questionIndex}" value="2">
+                                </div>
+                                <div class="option-item">
+                                    <input type="text" name="options_${questionIndex}[]" placeholder="Option 4" required>
+                                    <input type="radio" name="correct_answer_${questionIndex}" value="3">
+                                </div>
+                            </div>
+                        </div>
+                    `;
                     break;
                     
                 case 'true_false':
                     fieldsHTML = `
                         <div class="tf-container">
-                            <label>Correct Answer:</label>
+                            <div class="time-limit-container">
+                                <label>Time Limit (seconds):</label>
+                                <input type="number" name="time_limit_${questionIndex}" value="20" min="5" max="120">
+                            </div>
                             <div class="tf-options">
-                                <label>
-                                    <input type="radio" name="tf_correct_answer_${questionIndex}" value="true" required checked> True
-                                </label>
-                                <label>
-                                    <input type="radio" name="tf_correct_answer_${questionIndex}" value="false" required> False
-                                </label>
+                                <label>Correct Answer:</label>
+                                <div class="tf-option">
+                                    <input type="radio" name="tf_correct_answer_${questionIndex}" value="true" checked>
+                                    <label>True</label>
+                                </div>
+                                <div class="tf-option">
+                                    <input type="radio" name="tf_correct_answer_${questionIndex}" value="false">
+                                    <label>False</label>
+                                </div>
                             </div>
                         </div>
                     `;
@@ -951,10 +974,14 @@ body {
                 case 'short_answer':
                     fieldsHTML = `
                         <div class="short-answer-container">
-                            <label for="short_answer_correct_${questionIndex}">Correct Answer:</label>
-                            <input type="text" id="short_answer_correct_${questionIndex}" 
-                                   name="short_answer_correct_${questionIndex}" required
-                                   placeholder="Enter the correct answer">
+                            <div class="time-limit-container">
+                                <label>Time Limit (seconds):</label>
+                                <input type="number" name="time_limit_${questionIndex}" value="60" min="20" max="300">
+                            </div>
+                            <div class="short-answer">
+                                <label>Correct Answer:</label>
+                                <input type="text" name="short_answer_${questionIndex}" placeholder="Enter the correct answer" required>
+                            </div>
                         </div>
                     `;
                     break;
@@ -962,14 +989,15 @@ body {
                 case 'fill_blank':
                     fieldsHTML = `
                         <div class="fill-blank-container">
-                            <p class="tip">Use underscores (_) in your question to indicate blanks</p>
-                            <label>Answers for Blanks (in order):</label>
-                            <div class="blanks-container" id="blanks_container_${questionIndex}">
-                                <div class="blank-input">
-                                    <input type="text" name="fill_blank_answers_${questionIndex}[]" placeholder="Answer 1" required>
-                                    <button type="button" class="add-blank-btn" onclick="addBlankField(${questionIndex})">
-                                        <i class="fas fa-plus"></i>
-                                    </button>
+                            <div class="time-limit-container">
+                                <label>Time Limit (seconds):</label>
+                                <input type="number" name="time_limit_${questionIndex}" value="45" min="15" max="180">
+                            </div>
+                            <div class="blank-answers">
+                                <label>Answers for Blanks:</label>
+                                <div class="blank-item" id="blank_items_${questionIndex}">
+                                    <input type="text" name="fill_blank_answers_${questionIndex}[]" placeholder="Answer for blank 1" required>
+                                    <button type="button" class="add-blank-btn" onclick="addBlankItem(${questionIndex})">Add Another Blank</button>
                                 </div>
                             </div>
                         </div>
@@ -979,61 +1007,30 @@ body {
                 case 'matching':
                     fieldsHTML = `
                         <div class="matching-container">
-                            <div class="matching-columns">
-                                <div class="matching-left">
-                                    <label>Left Column:</label>
-                                    <div id="matching_left_${questionIndex}">
-                                        <div class="matching-item">
-                                            <input type="text" name="matching_left_${questionIndex}[]" placeholder="Item 1" required>
-                                        </div>
-                                        <div class="matching-item">
-                                            <input type="text" name="matching_left_${questionIndex}[]" placeholder="Item 2" required>
-                                        </div>
-                                    </div>
-                                    <button type="button" class="add-matching-btn" onclick="addMatchingItem('left', ${questionIndex})">
-                                        <i class="fas fa-plus"></i> Add Item
-                                    </button>
-                                </div>
-                                
-                                <div class="matching-right">
-                                    <label>Right Column:</label>
-                                    <div id="matching_right_${questionIndex}">
-                                        <div class="matching-item">
-                                            <input type="text" name="matching_right_${questionIndex}[]" placeholder="Match 1" required>
-                                            <select name="matching_pairs_${questionIndex}[]">
-                                                <option value="0">Item 1</option>
-                                                <option value="1">Item 2</option>
-                                            </select>
-                                        </div>
-                                        <div class="matching-item">
-                                            <input type="text" name="matching_right_${questionIndex}[]" placeholder="Match 2" required>
-                                            <select name="matching_pairs_${questionIndex}[]">
-                                                <option value="0">Item 1</option>
-                                                <option value="1" selected>Item 2</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <button type="button" class="add-matching-btn" onclick="addMatchingItem('right', ${questionIndex})">
-                                        <i class="fas fa-plus"></i> Add Item
-                                    </button>
-                                </div>
+                            <div class="time-limit-container">
+                                <label>Time Limit (seconds):</label>
+                                <input type="number" name="time_limit_${questionIndex}" value="90" min="30" max="300">
                             </div>
-                        </div>
-                    `;
-                    break;
-                    
-                case 'essay':
-                    fieldsHTML = `
-                        <div class="essay-container">
-                            <div class="word-limit">
-                                <label>Word Limit:</label>
-                                <input type="number" name="essay_word_limit_${questionIndex}" value="500" min="50" max="2000">
+                            <div class="matching-items" id="matching_items_${questionIndex}">
+                                <div class="matching-row">
+                                    <div class="matching-left">
+                                        <label>Left Item 1:</label>
+                                        <input type="text" name="matching_left_${questionIndex}[]" placeholder="Left item" required>
+                                    </div>
+                                    <div class="matching-right">
+                                        <label>Right Item 1:</label>
+                                        <input type="text" name="matching_right_${questionIndex}[]" placeholder="Right item" required>
+                                        <input type="hidden" name="matching_pairs_${questionIndex}[]" value="0">
+                                    </div>
+                                </div>
+                                <button type="button" class="add-matching-btn" onclick="addMatchingItem(${questionIndex})">Add Matching Pair</button>
                             </div>
                         </div>
                     `;
                     break;
             }
             
+            // Insert the HTML
             fieldsContainer.innerHTML = fieldsHTML;
         }
 
@@ -1171,13 +1168,12 @@ body {
                             
                             <div class="question-type-selector">
                                 <label>Question Type:</label>
-                                <select name="question_types[]" onchange="updateQuestionFields(this, ${index})" required>
+                                <select id="edit_question_type_${index}" name="question_types[]" onchange="showQuestionFields(${index})">
                                     <option value="multiple_choice" ${question.question_type === 'multiple_choice' ? 'selected' : ''}>Multiple Choice</option>
-                                    <option value="true_false" ${question.question_type === 'true_false' ? 'selected' : ''}>True or False</option>
+                                    <option value="true_false" ${question.question_type === 'true_false' ? 'selected' : ''}>True/False</option>
                                     <option value="short_answer" ${question.question_type === 'short_answer' ? 'selected' : ''}>Short Answer</option>
                                     <option value="fill_blank" ${question.question_type === 'fill_blank' ? 'selected' : ''}>Fill in the Blank</option>
                                     <option value="matching" ${question.question_type === 'matching' ? 'selected' : ''}>Matching</option>
-                                    <option value="essay" ${question.question_type === 'essay' ? 'selected' : ''}>Essay</option>
                                 </select>
                             </div>
                             
@@ -1186,7 +1182,7 @@ body {
                                 <input type="number" name="time_limit_${index}" value="${question.time_per_question || 30}" min="10" max="300" required>
                             </div>
 
-                            <div class="question-fields" id="question_fields_${index}">
+                            <div class="question-fields" id="fields_container_${index}">
                                 <!-- Question type specific fields will be inserted here -->
                             </div>
                         `;
@@ -1195,10 +1191,10 @@ body {
                         
                         // Initialize fields based on question type
                         const selectElement = newQuestionBlock.querySelector('select[name="question_types[]"]');
-                        updateQuestionFields(selectElement, index);
+                        showQuestionFields(index);
                         
                         // Populate the type-specific fields with existing data
-                        const fieldsContainer = document.getElementById(`question_fields_${index}`);
+                        const fieldsContainer = document.getElementById(`fields_container_${index}`);
                         
                         if (question.question_type === 'multiple_choice' && question.options) {
                             const optionInputs = fieldsContainer.querySelectorAll(`input[name="options_${index}[]"]`);
@@ -1316,10 +1312,6 @@ body {
                                 rightContainer.appendChild(itemDiv);
                             });
                         }
-                        else if (question.question_type === 'essay') {
-                            const wordLimitInput = fieldsContainer.querySelector(`input[name="essay_word_limit_${index}"]`);
-                            if (wordLimitInput) wordLimitInput.value = question.word_limit || 500;
-                        }
                     });
                 } else {
                     // If no questions, add a default question block
@@ -1359,13 +1351,13 @@ body {
                     
                     // Update question fields container id
                     const fieldsContainer = questionBlock.querySelector('.question-fields');
-                    if (fieldsContainer) fieldsContainer.id = `question_fields_${idx}`;
+                    if (fieldsContainer) fieldsContainer.id = `fields_container_${idx}`;
                     
                     // Update the fields based on question type
                     const typeSelect = questionBlock.querySelector('select[name="question_types[]"]');
                     if (typeSelect) {
-                        typeSelect.setAttribute('onchange', `updateQuestionFields(this, ${idx})`);
-                        updateQuestionFields(typeSelect, idx);
+                        typeSelect.setAttribute('onchange', `showQuestionFields(${idx})`);
+                        showQuestionFields(idx);
                     }
                 });
             }
@@ -1453,15 +1445,6 @@ body {
                         const selectedValue = select.value;
                         formData.append(`matching_pairs_${questionIndex}[]`, selectedValue);
                     });
-                }
-                else if (questionType === 'essay') {
-                    const wordLimit = parseInt(document.querySelector(`input[name="essay_word_limit_${questionIndex}"]`).value);
-                    
-                    questionData = {
-                        question_type: 'essay',
-                        question: questionText,
-                        word_limit: wordLimit || 500
-                    };
                 }
             });
 

@@ -350,6 +350,11 @@ def login():
         flash('Invalid email or password', 'error')
         return redirect(url_for('index'))
 
+    # Check if this is a teacher account
+    if user.get('role') == 'teacher':
+        flash('Teacher accounts must log in through the admin panel', 'error')
+        return redirect(url_for('index'))
+
     if not check_password_hash(user['password'], password):
         flash('Invalid email or password', 'error')
         return redirect(url_for('index'))
@@ -357,14 +362,6 @@ def login():
     session['user_email'] = email
     session['username'] = user['username']
     session['strand'] = user.get('strand', '')
-    
-    # Check if user is a teacher
-    if user.get('role') == 'teacher':
-        # Set teacher as logged in to admin panel
-        session['admin_logged_in'] = True
-        session['is_teacher'] = True
-        flash('Teacher login successful', 'success')
-        return redirect(url_for('admin_dashboard'))
     
     return redirect(url_for('dashboard'))
 
@@ -829,16 +826,26 @@ def admin_login():
         username = request.form.get('username')
         password = request.form.get('password')
         
-        # For debugging - print credentials to console
-        print(f"Admin login attempt: username='{username}', password='{password}'")
-        
-        # Check admin credentials (you should use a more secure method in production)
+        # Admin login
         if username == 'admin' and password == 'admin123':
             session['admin_logged_in'] = True
+            session['is_teacher'] = False
             flash('Admin login successful', 'success')
             return redirect(url_for('admin_dashboard'))
+            
+        # Teacher login - check database
+        email = username  # Use username field for email
+        user = get_user_by_email(email)
+        
+        if user and user.get('role') == 'teacher' and check_password_hash(user['password'], password):
+            session['admin_logged_in'] = True
+            session['is_teacher'] = True
+            session['user_email'] = email
+            session['username'] = user['username']
+            flash('Teacher login successful', 'success')
+            return redirect(url_for('admin_dashboard'))
         else:
-            flash('Invalid admin credentials', 'error')
+            flash('Invalid admin/teacher credentials', 'error')
     
     return render_template('nimda/admin_login.html')
 
@@ -1161,21 +1168,28 @@ def create_teacher():
         flash('Please fill in all fields', 'error')
         return redirect(url_for('admin_dashboard'))
     
-    users = load_users()
-    if email in users:
+    # Check if user already exists in database
+    existing_user = get_user_by_email(email)
+    if existing_user:
         flash('Email already registered', 'error')
         return redirect(url_for('admin_dashboard'))
     
-    # Create teacher account
-    users[email] = {
-        'username': username,
-        'password': generate_password_hash(password, method='pbkdf2:sha256'),
-        'role': 'teacher',
-        'created_at': datetime.now().isoformat()
-    }
-    save_users(users)
+    # Create teacher account in database
+    if not create_user(
+        username,
+        '',  # fullname (not needed for teachers)
+        '',  # lrn (not needed for teachers)
+        email,
+        password,
+        '',  # strand (not needed for teachers)
+    ):
+        flash('Error creating teacher account', 'error')
+        return redirect(url_for('admin_dashboard'))
     
-    flash('Teacher account created successfully', 'success')
+    # Update the created user to set role as teacher
+    update_user(email, {'role': 'teacher'})
+    
+    flash('Teacher account created successfully. Teacher can login through the admin panel using their email and password.', 'success')
     return redirect(url_for('admin_dashboard'))
 
 @app.route('/nimda/logout')
@@ -1183,6 +1197,69 @@ def admin_logout():
     if 'admin_logged_in' in session:
         session.pop('admin_logged_in')
     return redirect(url_for('admin_login'))
+
+def create_tables(cursor):
+    """Create all required tables if they don't exist"""
+    
+    # Create users table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        email VARCHAR(255) NOT NULL UNIQUE,
+        username VARCHAR(100) NOT NULL,
+        fullname VARCHAR(255) NOT NULL,
+        lrn VARCHAR(50) NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        strand VARCHAR(50) NOT NULL,
+        role ENUM('student', 'teacher', 'admin') DEFAULT 'student',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+    
+    # Create quizzes table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS quizzes (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        description TEXT,
+        category VARCHAR(100) NOT NULL,
+        strand VARCHAR(50) NOT NULL,
+        created_by VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        time_limit INT DEFAULT 0,
+        passing_score INT DEFAULT 60
+    )
+    """)
+    
+    # Create questions table - with updated question types
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS quiz_questions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        quiz_id INT NOT NULL,
+        question TEXT NOT NULL,
+        question_type ENUM('multiple_choice', 'true_false', 'short_answer', 'fill_blank', 'matching') NOT NULL,
+        options JSON,
+        correct_answer TEXT,
+        points INT DEFAULT 1,
+        FOREIGN KEY (quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE
+    )
+    """)
+    
+    # Create quiz attempts table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS quiz_attempts (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        quiz_id INT NOT NULL,
+        start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        end_time TIMESTAMP NULL,
+        score DECIMAL(5,2) DEFAULT 0,
+        passed BOOLEAN DEFAULT FALSE,
+        answers JSON,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE
+    )
+    """)
 
 init_files()
 

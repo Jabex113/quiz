@@ -29,10 +29,6 @@ A powerful assessment builder for teachers with comprehensive features for creat
    - Create matching items for left and right columns
    - Define correct matches
 
-6. **Essay**
-   - Long-form answers
-   - Word limit setting
-
 ### Time Management
 - Set time limits for each question
 - Automatic progression when time expires
@@ -93,20 +89,7 @@ This project is licensed under the MIT License
 
 ## Deployment Instructions
 
-### Vercel Deployment
 
-1. Fork this repository to your GitHub account
-2. Sign up for a Vercel account and connect it to your GitHub account
-3. Create a new project in Vercel and select the forked repository
-4. Set up the following environment variables in Vercel:
-   - `EMAIL_ADDRESS`: Your email address for OTP functionality
-   - `EMAIL_PASSWORD`: Your email app password 
-   - `FLASK_SECRET_KEY`: A random string for session security
-   - `VERCEL`: Set to "true"
-
-5. Deploy the project
-
-### Local Development
 
 1. Clone the repository
 2. Create a `.env` file based on `.env.example`
