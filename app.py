@@ -413,8 +413,9 @@ def dashboard():
     except Exception as e:
         print(f"Error fetching quiz attempts: {e}")
     
-    return render_template('dashboard.html', 
-        user=user, 
+    return render_template('dashboard_new.html', 
+        username=user['username'],
+        strand=user['strand'],
         quizzes=quizzes, 
         total_quizzes_completed=total_quizzes_completed,
         quiz_stats=quiz_stats
