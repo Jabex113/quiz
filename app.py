@@ -576,149 +576,252 @@ def start_quiz(quiz_id):
     
     return render_template('quiz.html', quiz=quiz)
 
+def create_tables(cursor):
+    """Create all required tables if they don't exist"""
+    
+    # Create users table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        email VARCHAR(255) NOT NULL UNIQUE,
+        username VARCHAR(100) NOT NULL,
+        fullname VARCHAR(255) NOT NULL,
+        lrn VARCHAR(50) NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        strand VARCHAR(50) NOT NULL,
+        role ENUM('student', 'teacher', 'admin') DEFAULT 'student',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+    
+    # Create quizzes table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS quizzes (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        description TEXT,
+        category VARCHAR(100) NOT NULL,
+        strand VARCHAR(50) NOT NULL,
+        created_by VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        time_limit INT DEFAULT 0,
+        passing_score INT DEFAULT 60
+    )
+    """)
+    
+    # Create questions table - with updated question types
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS quiz_questions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        quiz_id INT NOT NULL,
+        question TEXT NOT NULL,
+        question_type ENUM('multiple_choice', 'true_false', 'short_answer', 'fill_blank', 'matching') NOT NULL,
+        options JSON,
+        correct_answer TEXT,
+        points INT DEFAULT 1,
+        FOREIGN KEY (quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE
+    )
+    """)
+    
+    # Create quiz attempts table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS quiz_attempts (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        quiz_id VARCHAR(255) NOT NULL,
+        start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        end_time TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+        score DECIMAL(5,2) DEFAULT 0,
+        passed BOOLEAN DEFAULT FALSE,
+        answers JSON,
+        INDEX (user_id),
+        INDEX (quiz_id)
+    )
+    """)
+    
+    # Create mapping table between UUID and database IDs
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS quiz_id_mapping (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        uuid VARCHAR(255) NOT NULL UNIQUE,
+        db_id INT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX (uuid),
+        INDEX (db_id)
+    )
+    """)
+
+# Make sure tables exist when app starts
+conn = get_db_connection()
+with conn.cursor() as cursor:
+    create_tables(cursor)
+conn.commit()
+conn.close()
+
 @app.route('/submit-quiz', methods=['POST'])
 def submit_quiz():
     if 'user_email' not in session:
-        return jsonify({'error': 'User not logged in'}), 401
+        flash('Please log in to take quizzes', 'error')
+        return redirect(url_for('index'))
     
-    user = get_user_by_email(session['user_email'])
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
-    
-    # Get quiz data from the form
     quiz_id = request.form.get('quiz_id')
+    timeout = request.form.get('timeout') == 'true'
     
-    # Check if user has already completed this quiz
-    try:
-        conn = get_db_connection()
-        with conn.cursor() as cursor:
-            cursor.execute(
-                "SELECT id FROM quiz_attempts WHERE user_id = %s AND quiz_id = %s",
-                (user['id'], quiz_id)
-            )
-            existing_attempt = cursor.fetchone()
-            if existing_attempt:
-                conn.close()
-                return jsonify({'error': 'You have already taken this quiz. Each quiz can only be taken once.'}), 403
-        conn.close()
-    except Exception as e:
-        print(f"Error checking quiz attempts: {e}")
-        return jsonify({'error': 'Database error'}), 500
-    
-    # Load the quiz
     quizzes = load_quizzes()
     quiz = None
+    
     for q in quizzes:
         if q['id'] == quiz_id:
             quiz = q
             break
     
     if not quiz:
-        return jsonify({'error': 'Quiz not found'}), 404
+        flash('Quiz not found', 'error')
+        return redirect(url_for('dashboard'))
     
-    # Process and score answers
-    questions = quiz.get('questions', [])
-    total_score = 0
-    possible_score = 0
-    answers = {}
+    # Get user information
+    user = get_user_by_email(session['user_email'])
+    if not user:
+        flash('User not found', 'error')
+        return redirect(url_for('dashboard'))
     
-    for question in questions:
-        question_id = question.get('id')
-        question_type = question.get('type')
-        correct_answer = question.get('answer')
-        points = question.get('points', 1)  # Default to 1 point if not specified
-        possible_score += points
+    # Initialize results
+    correct_count = 0
+    total_questions = len(quiz.get('questions', []))
+    question_results = []
+    
+    # Process each question based on type
+    for i, question in enumerate(quiz.get('questions', [])):
+        question_type = question.get('question_type', 'multiple_choice')
+        user_answer = None
+        is_correct = False
+        feedback = ""
         
-        user_answer = request.form.get(f'question_{question_id}', '')
-        answers[question_id] = user_answer
+        # Get user's answer based on question type
+        if question_type == 'multiple_choice':
+            user_answer = request.form.get(f'answer_{i}')
+            if user_answer is not None:
+                user_answer = int(user_answer)
+                is_correct = user_answer == question.get('correct_answer')
         
-        # Score based on question type
-        if question_type == 'multiple_choice' or question_type == 'true_false':
-            if user_answer == correct_answer:
-                total_score += points
+        elif question_type == 'true_false':
+            user_answer = request.form.get(f'answer_{i}')
+            is_correct = user_answer == question.get('correct_answer')
         
-        elif question_type == 'short_answer' or question_type == 'fill_in_the_blank':
-            # Case-insensitive exact match
-            if user_answer.lower() == correct_answer.lower():
-                total_score += points
-            else:
-                # Check for partial credit - keywords in correct answer
-                keywords = [kw.strip().lower() for kw in correct_answer.split() if len(kw.strip()) > 3]
-                if keywords:
-                    matched_keywords = 0
-                    user_answer_lower = user_answer.lower()
-                    
-                    for keyword in keywords:
-                        if keyword in user_answer_lower:
-                            matched_keywords += 1
-                    
-                    # Give partial credit based on keyword matches
-                    if matched_keywords > 0:
-                        keyword_ratio = matched_keywords / len(keywords)
-                        if keyword_ratio >= 0.7:  # If 70% or more keywords match
-                            total_score += points * 0.8  # 80% credit
-                        elif keyword_ratio >= 0.5:  # If 50% or more keywords match
-                            total_score += points * 0.5  # 50% credit
+        elif question_type == 'short_answer':
+            user_answer = request.form.get(f'answer_{i}', '').strip()
+            correct_answer = question.get('correct_answer', '').strip()
+            
+            # Case-insensitive comparison
+            is_correct = user_answer.lower() == correct_answer.lower()
+            
+            # If not matched exactly, check if it contains the main keywords
+            if not is_correct:
+                # Split both answers into words and check if all important words from correct answer
+                # are present in user's answer
+                correct_words = set(w.lower() for w in correct_answer.split() if len(w) > 3)
+                user_words = set(w.lower() for w in user_answer.split())
                 
-                # For very short answers, check Levenshtein distance
-                if len(correct_answer) <= 20 and len(user_answer) > 0:
-                    # Calculate similarity ratio
-                    max_distance = max(len(correct_answer), len(user_answer))
-                    if max_distance > 0:
-                        distance = levenshtein_distance(user_answer.lower(), correct_answer.lower())
-                        similarity = 1 - (distance / max_distance)
-                        
-                        # If similarity is high (>85%) but not already awarded full points
-                        if similarity >= 0.85 and total_score < points:
-                            total_score += points * 0.9  # 90% credit for very close answers
+                # If the user has included at least 80% of the important words, consider it correct
+                if correct_words and len(correct_words.intersection(user_words)) / len(correct_words) >= 0.8:
+                    is_correct = True
+                    feedback = "Partially correct but accepted."
+        
+        elif question_type == 'fill_blank':
+            user_answer = request.form.get(f'answer_{i}', '').strip()
+            correct_answer = question.get('correct_answer', '').strip()
+            
+            # Case-insensitive comparison
+            is_correct = user_answer.lower() == correct_answer.lower()
+            
+            # If not matched exactly, check similarity
+            if not is_correct:
+                # If the answers are similar length and share most of the same characters
+                if abs(len(user_answer) - len(correct_answer)) <= 2:
+                    user_chars = set(user_answer.lower())
+                    correct_chars = set(correct_answer.lower())
+                    if len(user_chars.intersection(correct_chars)) / len(correct_chars) >= 0.8:
+                        is_correct = True
+                        feedback = "Partially correct but accepted."
         
         elif question_type == 'matching':
-            # For matching, answer format is expected to be JSON
-            try:
-                user_matches = json.loads(user_answer) if user_answer else {}
-                correct_matches = json.loads(correct_answer) if correct_answer else {}
-                
-                if user_matches and correct_matches:
-                    match_count = 0
-                    for key, value in user_matches.items():
-                        if key in correct_matches and correct_matches[key] == value:
-                            match_count += 1
-                    
-                    # Calculate partial credit based on correct matches
-                    if match_count > 0 and len(correct_matches) > 0:
-                        match_ratio = match_count / len(correct_matches)
-                        total_score += points * match_ratio
-            except:
-                # If there was an error parsing JSON, no points awarded
-                pass
+            # Get all selected options for this matching question
+            user_answers = {}
+            for key, value in request.form.items():
+                if key.startswith(f'match_{i}_'):
+                    item_index = key.split('_')[2]
+                    user_answers[item_index] = value
+            
+            user_answer = user_answers
+            
+            # Check if all matching items are correct
+            is_correct = True
+            for item_index, selected_value in user_answers.items():
+                matching_pairs = question.get('matching_pairs', [])
+                if int(item_index) < len(matching_pairs):
+                    correct_value = matching_pairs[int(item_index)].get('match')
+                    if selected_value != correct_value:
+                        is_correct = False
+                        break
+        
+        # Add to correct count if answer is correct
+        if is_correct:
+            correct_count += 1
+        
+        # Store the result for this question
+        question_results.append({
+            'question': question.get('question', ''),
+            'question_type': question_type,
+            'user_answer': user_answer,
+            'correct_answer': question.get('correct_answer'),
+            'is_correct': is_correct,
+            'feedback': feedback
+        })
     
-    # Calculate percentage score
-    percentage_score = (total_score / possible_score * 100) if possible_score > 0 else 0
-    passed = percentage_score >= 70  # Consider 70% as passing score
+    # Calculate score as percentage
+    score = (correct_count / total_questions) * 100 if total_questions > 0 else 0
     
-    # Record quiz attempt in database
+    # Record the quiz attempt in the database
+    print(f"Saving quiz attempt for user {user['id']}, quiz {quiz_id}, score {score}")
     try:
         conn = get_db_connection()
         with conn.cursor() as cursor:
+            # Insert quiz attempt - using direct string for quiz_id since it may not be an integer
             cursor.execute(
                 """INSERT INTO quiz_attempts 
                    (user_id, quiz_id, score, passed, answers) 
                    VALUES (%s, %s, %s, %s, %s)""",
-                (user['id'], quiz_id, percentage_score, passed, json.dumps(answers))
+                (
+                    user['id'],
+                    quiz_id,
+                    score,
+                    score >= quiz.get('passing_score', 60),
+                    json.dumps(question_results)
+                )
             )
+            print(f"Successfully inserted quiz attempt with ID: {cursor.lastrowid}")
         conn.commit()
         conn.close()
     except Exception as e:
         print(f"Error recording quiz attempt: {e}")
+        import traceback
+        traceback.print_exc()
     
-    # Store result in session
-    session['quiz_result'] = {
-        'score': round(percentage_score, 1),
-        'passed': passed,
-        'quiz_id': quiz_id
+    # Create quiz result record
+    result = {
+        'quiz_id': quiz_id,
+        'quiz_title': quiz.get('title', ''),
+        'timestamp': datetime.now().isoformat(),
+        'score': score,
+        'question_results': question_results,
+        'timeout': timeout
     }
     
-    return redirect(url_for('show_results', score=round(percentage_score, 1)))
+    # Store the result in the session for display on the results page
+    session['last_quiz_results'] = result
+    
+    # Redirect to results page
+    return redirect(url_for('quiz_results', quiz_id=quiz_id, score=score))
 
 @app.route('/quiz-results')
 def quiz_results():
@@ -950,9 +1053,12 @@ def admin_post_quiz():
             flash('Please fill in all required fields', 'error')
             return redirect(url_for('admin_dashboard'))
         
+        # Generate UUID for the quiz
+        quiz_id = str(uuid.uuid4())
+        
         # Create new quiz
         new_quiz = {
-            'id': str(uuid.uuid4()),
+            'id': quiz_id,
             'title': quiz_title,
             'description': quiz_description,
             'topics': quiz_topics,
@@ -965,9 +1071,44 @@ def admin_post_quiz():
             'quiz_category': quiz_category
         }
         
+        # Add to file storage
         quizzes = load_quizzes()
         quizzes.append(new_quiz)
         save_quizzes(quizzes)
+        
+        # Also add to database
+        try:
+            conn = get_db_connection()
+            with conn.cursor() as cursor:
+                # Insert new quiz into database
+                cursor.execute(
+                    """INSERT INTO quizzes 
+                       (title, description, category, strand, created_by, created_at) 
+                       VALUES (%s, %s, %s, %s, %s, NOW())""",
+                    (
+                        quiz_title,
+                        quiz_description,
+                        quiz_category,
+                        strand,
+                        'admin',
+                    )
+                )
+                db_quiz_id = cursor.lastrowid
+                
+                # Create a mapping from UUID to database ID to help with quiz questions later
+                cursor.execute(
+                    """INSERT INTO quiz_id_mapping (uuid, db_id) VALUES (%s, %s)""",
+                    (quiz_id, db_quiz_id)
+                )
+                
+                print(f"Created new quiz in database with ID: {db_quiz_id}, UUID: {quiz_id}")
+            conn.commit()
+        except Exception as e:
+            print(f"Error adding quiz to database: {e}")
+            import traceback
+            traceback.print_exc()
+        finally:
+            conn.close()
         
         flash('Quiz created successfully!', 'success')
         return redirect(url_for('admin_dashboard'))
@@ -1000,7 +1141,7 @@ def admin_save_quiz_questions():
     print("\n===== SAVE QUIZ QUESTIONS DEBUG =====")
     
     quiz_id = request.form.get('quiz_id')
-    print(f"Quiz ID: {quiz_id}")
+    print(f"Quiz ID (UUID): {quiz_id}")
     
     questions_text = request.form.getlist('questions[]')
     print(f"Number of questions: {len(questions_text)}")
@@ -1030,7 +1171,74 @@ def admin_save_quiz_questions():
     quiz['questions'] = []
     print(f"Reset quiz questions array to empty")
     
+    # Store database quiz ID if it exists
+    db_quiz_id = None
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            # First check the mapping table
+            cursor.execute("SELECT db_id FROM quiz_id_mapping WHERE uuid = %s", (quiz_id,))
+            mapping = cursor.fetchone()
+            
+            if mapping:
+                db_quiz_id = mapping['db_id']
+                print(f"Found quiz in mapping table with DB ID: {db_quiz_id}")
+                
+                # Delete existing questions for this quiz
+                cursor.execute("DELETE FROM quiz_questions WHERE quiz_id = %s", (db_quiz_id,))
+                print(f"Deleted existing questions for quiz ID: {db_quiz_id}")
+            else:
+                # Check if quiz exists in database by ID
+                cursor.execute("SELECT id FROM quizzes WHERE id = %s", (quiz_id,))
+                result = cursor.fetchone()
+                
+                if result:
+                    db_quiz_id = result['id']
+                    print(f"Found quiz directly in database with ID: {db_quiz_id}")
+                    
+                    # Add to mapping for future lookups
+                    cursor.execute(
+                        "INSERT INTO quiz_id_mapping (uuid, db_id) VALUES (%s, %s)",
+                        (quiz_id, db_quiz_id)
+                    )
+                    
+                    # Delete existing questions
+                    cursor.execute("DELETE FROM quiz_questions WHERE quiz_id = %s", (db_quiz_id,))
+                    print(f"Deleted existing questions for quiz ID: {db_quiz_id}")
+                else:
+                    # Need to create the quiz in database
+                    cursor.execute(
+                        """INSERT INTO quizzes 
+                           (title, description, category, strand, created_by, created_at) 
+                           VALUES (%s, %s, %s, %s, %s, NOW())""",
+                        (
+                            quiz.get('title', ''),
+                            quiz.get('description', ''),
+                            quiz.get('quiz_category', ''),
+                            quiz.get('strand', ''),
+                            'admin',
+                        )
+                    )
+                    db_quiz_id = cursor.lastrowid
+                    print(f"Created new quiz in database with ID: {db_quiz_id}")
+                    
+                    # Add to mapping
+                    cursor.execute(
+                        "INSERT INTO quiz_id_mapping (uuid, db_id) VALUES (%s, %s)",
+                        (quiz_id, db_quiz_id)
+                    )
+        
+        conn.commit()
+    except Exception as e:
+        print(f"Error accessing quiz in database: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        conn.close()
+    
     # Process each question based on its type
+    db_questions = []  # To store questions for database insertion
+    
     for idx, q_idx in enumerate(question_indices):
         q_idx = int(q_idx)
         question_text = questions_text[idx]
@@ -1047,28 +1255,45 @@ def admin_save_quiz_questions():
             "time_per_question": time_limit
         }
         
+        # Initialize database question data
+        db_question = {
+            'quiz_id': db_quiz_id,
+            'question': question_text,
+            'question_type': question_type,
+            'options': None,
+            'correct_answer': None
+        }
+        
         # Add type-specific data
         if question_type == "multiple_choice":
             options = request.form.getlist(f'options_{q_idx}[]')
             correct_answer = int(request.form.get(f'correct_answer_{q_idx}', 0))
             question_data["options"] = options
             question_data["correct_answer"] = correct_answer
+            
+            db_question['options'] = json.dumps(options)
+            db_question['correct_answer'] = str(correct_answer)
+            
             print(f"  Multiple choice: {len(options)} options, correct: {correct_answer}")
             
         elif question_type == "true_false":
             correct_answer = request.form.get(f'tf_correct_answer_{q_idx}')
             question_data["correct_answer"] = correct_answer
+            db_question['correct_answer'] = correct_answer
             print(f"  True/False: correct: {correct_answer}")
             
         elif question_type == "short_answer":
             correct_answer = request.form.get(f'short_answer_{q_idx}')
             question_data["correct_answer"] = correct_answer
+            db_question['correct_answer'] = correct_answer
             question_data["ai_detection"] = request.form.get(f'ai_detection_{q_idx}') == 'on'
             print(f"  Short answer: correct: {correct_answer}, AI detection: {question_data['ai_detection']}")
             
         elif question_type == "fill_blank":
             blanks = request.form.getlist(f'fill_blank_answers_{q_idx}[]')
             question_data["blanks"] = blanks
+            db_question['correct_answer'] = blanks[0] if blanks else ''
+            db_question['options'] = json.dumps(blanks)
             print(f"  Fill in blank: {len(blanks)} blanks")
             
         elif question_type == "matching":
@@ -1082,16 +1307,21 @@ def admin_save_quiz_questions():
             question_data["left_items"] = left_items
             question_data["right_items"] = right_items
             question_data["correct_matches"] = correct_matches
-            print(f"  Matching: {len(left_items)} left items, {len(right_items)} right items")
             
-        elif question_type == "essay":
-            question_data["ai_detection"] = request.form.get(f'essay_ai_detection_{q_idx}') == 'on'
-            question_data["anti_plagiarism"] = request.form.get(f'essay_plagiarism_{q_idx}') == 'on'
-            question_data["word_limit"] = int(request.form.get(f'essay_word_limit_{q_idx}', 500))
-            print(f"  Essay: word limit: {question_data['word_limit']}")
+            # Store matching data in database format
+            matching_data = {
+                'left_items': left_items,
+                'right_items': right_items,
+                'correct_matches': correct_matches
+            }
+            db_question['options'] = json.dumps(matching_data)
+            db_question['correct_answer'] = json.dumps(correct_matches)
+            
+            print(f"  Matching: {len(left_items)} left items, {len(right_items)} right items")
         
         # Add to questions list and track time
         quiz['questions'].append(question_data)
+        db_questions.append(db_question)
         time_per_question.append(time_limit)
         total_time += time_limit
     
@@ -1115,9 +1345,37 @@ def admin_save_quiz_questions():
         quiz['grade_level'] = grade_level
         print(f"Grade level: {grade_level}")
     
-    # Save updated quizzes
+    # Save updated quizzes to file
     save_quizzes(quizzes)
-    print(f"Saved quiz with {len(quiz['questions'])} questions")
+    print(f"Saved quiz to file with {len(quiz['questions'])} questions")
+    
+    # Save questions to database
+    if db_quiz_id:
+        try:
+            conn = get_db_connection()
+            with conn.cursor() as cursor:
+                for question in db_questions:
+                    cursor.execute(
+                        """INSERT INTO quiz_questions 
+                           (quiz_id, question, question_type, options, correct_answer) 
+                           VALUES (%s, %s, %s, %s, %s)""",
+                        (
+                            db_quiz_id,
+                            question['question'],
+                            question['question_type'],
+                            question['options'],
+                            question['correct_answer']
+                        )
+                    )
+            conn.commit()
+            print(f"Saved {len(db_questions)} questions to database for quiz ID: {db_quiz_id}")
+        except Exception as e:
+            print(f"Error saving questions to database: {e}")
+            import traceback
+            traceback.print_exc()
+        finally:
+            conn.close()
+    
     print("===== END SAVE QUIZ QUESTIONS DEBUG =====\n")
     
     # Verify the save worked by trying to load the file again
@@ -1266,71 +1524,6 @@ def admin_logout():
     if 'admin_logged_in' in session:
         session.pop('admin_logged_in')
     return redirect(url_for('admin_login'))
-
-def create_tables(cursor):
-    """Create all required tables if they don't exist"""
-    
-    # Create users table
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS users (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        email VARCHAR(255) NOT NULL UNIQUE,
-        username VARCHAR(100) NOT NULL,
-        fullname VARCHAR(255) NOT NULL,
-        lrn VARCHAR(50) NOT NULL,
-        password VARCHAR(255) NOT NULL,
-        strand VARCHAR(50) NOT NULL,
-        role ENUM('student', 'teacher', 'admin') DEFAULT 'student',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-    """)
-    
-    # Create quizzes table
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS quizzes (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        title VARCHAR(255) NOT NULL,
-        description TEXT,
-        category VARCHAR(100) NOT NULL,
-        strand VARCHAR(50) NOT NULL,
-        created_by VARCHAR(255) NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        time_limit INT DEFAULT 0,
-        passing_score INT DEFAULT 60
-    )
-    """)
-    
-    # Create questions table - with updated question types
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS quiz_questions (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        quiz_id INT NOT NULL,
-        question TEXT NOT NULL,
-        question_type ENUM('multiple_choice', 'true_false', 'short_answer', 'fill_blank', 'matching') NOT NULL,
-        options JSON,
-        correct_answer TEXT,
-        points INT DEFAULT 1,
-        FOREIGN KEY (quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE
-    )
-    """)
-    
-    # Create quiz attempts table
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS quiz_attempts (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT NOT NULL,
-        quiz_id INT NOT NULL,
-        start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        end_time TIMESTAMP NULL,
-        score DECIMAL(5,2) DEFAULT 0,
-        passed BOOLEAN DEFAULT FALSE,
-        answers JSON,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-        FOREIGN KEY (quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE
-    )
-    """)
-
-init_files()
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5003))
