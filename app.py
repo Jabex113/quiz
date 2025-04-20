@@ -732,8 +732,12 @@ def submit_quiz():
     # Get user information
     user = get_user_by_email(session['user_email'])
     if not user:
-        flash('User not found', 'error')
-        return redirect(url_for('dashboard'))
+        # Try file-based storage
+        users = load_users()
+        user = users.get(session['user_email'])
+        if not user:
+            flash('User not found', 'error')
+            return redirect(url_for('dashboard'))
     
     # Initialize results
     correct_count = 0
@@ -751,22 +755,30 @@ def submit_quiz():
         if question_type == 'multiple_choice':
             user_answer = request.form.get(f'answer_{i}')
             if user_answer is not None:
-                user_answer = int(user_answer)
-                is_correct = user_answer == question.get('correct_answer')
+                try:
+                    user_answer = int(user_answer)
+                    correct_answer = question.get('correct_answer')
+                    is_correct = user_answer == correct_answer
+                except (ValueError, TypeError):
+                    pass
         
         elif question_type == 'true_false':
             user_answer = request.form.get(f'answer_{i}')
-            is_correct = user_answer == question.get('correct_answer')
+            correct_answer = question.get('correct_answer')
+            is_correct = user_answer == correct_answer if user_answer is not None and correct_answer is not None else False
         
         elif question_type == 'short_answer':
-            user_answer = request.form.get(f'answer_{i}', '').strip()
-            correct_answer = question.get('correct_answer', '').strip()
+            user_answer_raw = request.form.get(f'answer_{i}', '')
+            user_answer = user_answer_raw.strip() if user_answer_raw is not None else ''
+            
+            correct_answer_raw = question.get('correct_answer', '')
+            correct_answer = correct_answer_raw.strip() if correct_answer_raw is not None else ''
             
             # Case-insensitive comparison
-            is_correct = user_answer.lower() == correct_answer.lower()
+            is_correct = user_answer.lower() == correct_answer.lower() if user_answer and correct_answer else False
             
             # If not matched exactly, check if it contains the main keywords
-            if not is_correct:
+            if not is_correct and user_answer and correct_answer:
                 # Split both answers into words and check if all important words from correct answer
                 # are present in user's answer
                 correct_words = set(w.lower() for w in correct_answer.split() if len(w) > 3)
@@ -778,14 +790,17 @@ def submit_quiz():
                     feedback = "Partially correct but accepted."
         
         elif question_type == 'fill_blank':
-            user_answer = request.form.get(f'answer_{i}', '').strip()
-            correct_answer = question.get('correct_answer', '').strip()
+            user_answer_raw = request.form.get(f'answer_{i}', '')
+            user_answer = user_answer_raw.strip() if user_answer_raw is not None else ''
+            
+            correct_answer_raw = question.get('correct_answer', '')
+            correct_answer = correct_answer_raw.strip() if correct_answer_raw is not None else ''
             
             # Case-insensitive comparison
-            is_correct = user_answer.lower() == correct_answer.lower()
+            is_correct = user_answer.lower() == correct_answer.lower() if user_answer and correct_answer else False
             
             # If not matched exactly, check similarity
-            if not is_correct:
+            if not is_correct and user_answer and correct_answer:
                 # If the answers are similar length and share most of the same characters
                 if abs(len(user_answer) - len(correct_answer)) <= 2:
                     user_chars = set(user_answer.lower())
@@ -806,11 +821,22 @@ def submit_quiz():
             
             # Check if all matching items are correct
             is_correct = True
-            for item_index, selected_value in user_answers.items():
-                matching_pairs = question.get('matching_pairs', [])
-                if int(item_index) < len(matching_pairs):
-                    correct_value = matching_pairs[int(item_index)].get('match')
-                    if selected_value != correct_value:
+            matching_pairs = question.get('matching_pairs', [])
+            if not matching_pairs:  # If no matching pairs, can't be correct
+                is_correct = False
+            else:
+                for item_index, selected_value in user_answers.items():
+                    try:
+                        item_idx = int(item_index)
+                        if item_idx < len(matching_pairs):
+                            correct_value = matching_pairs[item_idx].get('match')
+                            if selected_value != correct_value:
+                                is_correct = False
+                                break
+                        else:
+                            is_correct = False
+                            break
+                    except (ValueError, TypeError, IndexError):
                         is_correct = False
                         break
         
@@ -831,31 +857,48 @@ def submit_quiz():
     # Calculate score as percentage
     score = (correct_count / total_questions) * 100 if total_questions > 0 else 0
     
-    # Record the quiz attempt in the database
-    print(f"Saving quiz attempt for user {user['id']}, quiz {quiz_id}, score {score}")
+    # Store in file-based system
+    if isinstance(user, dict):
+        if 'quiz_history' not in user:
+            user['quiz_history'] = []
+        
+        user['quiz_history'].append({
+            'quiz_id': quiz_id,
+            'quiz_title': quiz.get('title', ''),
+            'timestamp': datetime.now().isoformat(),
+            'score': score,
+            'question_results': question_results,
+            'timeout': timeout
+        })
+        
+        # Save to file system
+        users = load_users()
+        users[session['user_email']] = user
+        save_users(users)
+    
+    # Try to record the quiz attempt in the database
     try:
         conn = get_db_connection()
-        with conn.cursor() as cursor:
-            # Insert quiz attempt - using direct string for quiz_id since it may not be an integer
-            cursor.execute(
-                """INSERT INTO quiz_attempts 
-                   (user_id, quiz_id, score, passed, answers) 
-                   VALUES (%s, %s, %s, %s, %s)""",
-                (
-                    user['id'],
-                    quiz_id,
-                    score,
-                    score >= quiz.get('passing_score', 60),
-                    json.dumps(question_results)
+        if conn:
+            with conn.cursor() as cursor:
+                # Insert quiz attempt - using direct string for quiz_id since it may not be an integer
+                cursor.execute(
+                    """INSERT INTO quiz_attempts 
+                       (user_id, quiz_id, score, passed, answers) 
+                       VALUES (%s, %s, %s, %s, %s)""",
+                    (
+                        user.get('id', 0),
+                        quiz_id,
+                        score,
+                        score >= quiz.get('passing_score', 60),
+                        json.dumps(question_results)
+                    )
                 )
-            )
-            print(f"Successfully inserted quiz attempt with ID: {cursor.lastrowid}")
-        conn.commit()
-        conn.close()
+                print(f"Successfully inserted quiz attempt with ID: {cursor.lastrowid}")
+            conn.commit()
+            conn.close()
     except Exception as e:
-        print(f"Error recording quiz attempt: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"Error recording quiz attempt in database: {e}")
     
     # Create quiz result record
     result = {
