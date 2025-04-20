@@ -380,6 +380,14 @@ def dashboard():
     # Load quizzes
     quizzes = load_quizzes()
     
+    # Organize quizzes by category
+    organized_quizzes = {}
+    for quiz in quizzes:
+        category = quiz.get('category', 'Uncategorized')
+        if category not in organized_quizzes:
+            organized_quizzes[category] = []
+        organized_quizzes[category].append(quiz)
+    
     # Get quiz attempts from database for this user
     quiz_stats = {}
     total_quizzes_completed = 0
@@ -416,7 +424,8 @@ def dashboard():
     return render_template('dashboard_new.html', 
         username=user['username'],
         strand=user['strand'],
-        quizzes=quizzes, 
+        quizzes=quizzes,
+        organized_quizzes=organized_quizzes,
         total_quizzes_completed=total_quizzes_completed,
         quiz_stats=quiz_stats
     )
