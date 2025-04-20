@@ -30,14 +30,19 @@ DB_NAME = os.getenv('DB_NAME', 'quiz_app')
 
 # Database connection function
 def get_db_connection():
-    conn = pymysql.connect(
-        host=DB_HOST,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        database=DB_NAME,
-        cursorclass=pymysql.cursors.DictCursor
-    )
-    return conn
+    try:
+        conn = pymysql.connect(
+            host=DB_HOST,
+            user=DB_USER,
+            password=DB_PASSWORD,
+            database=DB_NAME,
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        return conn
+    except Exception as e:
+        print(f"Database connection error: {e}")
+        print("Using file-based storage as fallback")
+        return None
 
 # Register custom filters
 @app.template_filter('datetime')
@@ -371,11 +376,15 @@ def dashboard():
         flash('Please log in to access your dashboard', 'error')
         return redirect(url_for('index'))
     
-    # Get user information from database
+    # Get user information from database or file
     user = get_user_by_email(session['user_email'])
     if not user:
-        flash('User not found', 'error')
-        return redirect(url_for('index'))
+        # Try from legacy file storage
+        users = load_users()
+        user = users.get(session['user_email'])
+        if not user:
+            flash('User not found', 'error')
+            return redirect(url_for('index'))
     
     # Load quizzes
     quizzes = load_quizzes()
@@ -383,7 +392,7 @@ def dashboard():
     # Organize quizzes by category
     organized_quizzes = {}
     for quiz in quizzes:
-        category = quiz.get('category', 'Uncategorized')
+        category = quiz.get('quiz_category', 'Uncategorized')
         if category not in organized_quizzes:
             organized_quizzes[category] = []
         organized_quizzes[category].append(quiz)
@@ -394,36 +403,57 @@ def dashboard():
     
     try:
         conn = get_db_connection()
-        with conn.cursor(pymysql.cursors.DictCursor) as cursor:
-            # Get all user quiz attempts
-            cursor.execute(
-                """SELECT quiz_id, score, passed FROM quiz_attempts 
-                   WHERE user_id = %s""",
-                (user['id'])
-            )
-            attempts = cursor.fetchall()
+        if conn:
+            with conn.cursor(pymysql.cursors.DictCursor) as cursor:
+                # Get all user quiz attempts
+                cursor.execute(
+                    """SELECT quiz_id, score, passed FROM quiz_attempts 
+                       WHERE user_id = %s""",
+                    (user.get('id', 0))
+                )
+                attempts = cursor.fetchall()
+                
+                # Count total completed quizzes
+                total_quizzes_completed = len(attempts)
+                
+                # Group attempts by quiz_id to find highest score for each quiz
+                for attempt in attempts:
+                    quiz_id = attempt['quiz_id']
+                    score = attempt['score']
+                    passed = attempt['passed']
+                    
+                    if quiz_id not in quiz_stats or score > quiz_stats[quiz_id]['score']:
+                        quiz_stats[quiz_id] = {
+                            'score': score,
+                            'passed': passed
+                        }
+            conn.close()
+        else:
+            # Fallback to file-based quiz history if database not available
+            quiz_history = user.get('quiz_history', [])
+            total_quizzes_completed = len(quiz_history)
             
-            # Count total completed quizzes
-            total_quizzes_completed = len(attempts)
-            
-            # Group attempts by quiz_id to find highest score for each quiz
-            for attempt in attempts:
-                quiz_id = attempt['quiz_id']
-                score = attempt['score']
-                passed = attempt['passed']
+            # Extract stats from quiz history
+            for attempt in quiz_history:
+                quiz_id = attempt.get('quiz_id')
+                score = attempt.get('score', 0)
+                passed = score >= 60  # Assuming 60% is passing
                 
                 if quiz_id not in quiz_stats or score > quiz_stats[quiz_id]['score']:
                     quiz_stats[quiz_id] = {
                         'score': score,
                         'passed': passed
                     }
-        conn.close()
     except Exception as e:
         print(f"Error fetching quiz attempts: {e}")
+        # Fallback to file-based quiz history
+        if isinstance(user, dict):
+            quiz_history = user.get('quiz_history', [])
+            total_quizzes_completed = len(quiz_history)
     
     return render_template('dashboard_new.html', 
-        username=user['username'],
-        strand=user['strand'],
+        username=user.get('username', session.get('username', '')),
+        strand=user.get('strand', ''),
         quizzes=quizzes,
         organized_quizzes=organized_quizzes,
         total_quizzes_completed=total_quizzes_completed,
@@ -662,11 +692,21 @@ def create_tables(cursor):
     """)
 
 # Make sure tables exist when app starts
-conn = get_db_connection()
-with conn.cursor() as cursor:
-    create_tables(cursor)
-conn.commit()
-conn.close()
+try:
+    conn = get_db_connection()
+    if conn:
+        with conn.cursor() as cursor:
+            create_tables(cursor)
+        conn.commit()
+        conn.close()
+    else:
+        print("Skipping table creation - using file-based storage")
+except Exception as e:
+    print(f"Error creating tables: {e}")
+    print("Continuing with file-based storage")
+
+# Initialize files
+init_files()
 
 @app.route('/submit-quiz', methods=['POST'])
 def submit_quiz():
