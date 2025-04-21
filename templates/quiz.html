@@ -566,7 +566,7 @@
                         {% for option in question.options %}
                         <div class="quiz-option">
                             <input type="radio" id="q{{ loop.index0 }}_option{{ loop.index }}" 
-                                   name="answer_{{ loop.index0 }}" value="{{ loop.index0 }}">
+                                   name="answer_{{ loop.index0 }}" value="{{ loop.index }}">
                             <label for="q{{ loop.index0 }}_option{{ loop.index }}">{{ option }}</label>
                         </div>
                         {% endfor %}

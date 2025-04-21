@@ -858,12 +858,20 @@ def submit_quiz():
         # Get user's answer based on question type
         if question_type == 'multiple_choice':
             user_answer = request.form.get(f'answer_{i}')
+            print(f"Debug - Question {i}: Raw user answer = {user_answer}")
             if user_answer is not None:
                 try:
+                    # Convert to int and add question data for debugging
                     user_answer = int(user_answer)
                     correct_answer = question.get('correct_answer')
+                    options = question.get('options', [])
+                    print(f"Debug - Question {i}: Processed user answer = {user_answer}, Correct answer = {correct_answer}")
+                    print(f"Debug - Options: {options}")
+                    
+                    # Compare the user's answer with the correct answer
                     is_correct = user_answer == correct_answer
-                except (ValueError, TypeError):
+                except (ValueError, TypeError) as e:
+                    print(f"Debug - Error processing answer: {e}")
                     pass
         
         elif question_type == 'true_false':
