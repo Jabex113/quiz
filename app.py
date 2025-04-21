@@ -17,10 +17,18 @@ import io
 import uuid
 import pymysql  # Add MySQL connector
 
+# Add a custom JSON encoder to handle datetime objects
+class DateTimeEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        return super().default(obj)
+
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv('FLASK_SECRET_KEY')
+app.json_encoder = DateTimeEncoder  # Use our custom JSON encoder for all JSON serialization
 
 # Database configuration
 DB_HOST = os.getenv('DB_HOST', 'localhost')
@@ -152,7 +160,7 @@ def load_users():
 
 def save_users(users):
     with open(USERS_FILE, 'w') as f:
-        json.dump(users, f, indent=2)
+        json.dump(users, f, indent=2, cls=DateTimeEncoder)
 
 def load_stories():
     try:
@@ -163,7 +171,7 @@ def load_stories():
 
 def save_stories(stories):
     with open(STORIES_FILE, 'w') as f:
-        json.dump(stories, f, indent=2)
+        json.dump(stories, f, indent=2, cls=DateTimeEncoder)
 
 def load_quizzes():
     try:
@@ -174,7 +182,7 @@ def load_quizzes():
 
 def save_quizzes(quizzes):
     with open(QUIZZES_FILE, 'w') as f:
-        json.dump(quizzes, f, indent=2)
+        json.dump(quizzes, f, indent=2, cls=DateTimeEncoder)
 
 def get_icons_by_category():
     return {
@@ -885,7 +893,7 @@ def submit_quiz():
                         quiz_id,
                         score,
                         score >= quiz.get('passing_score', 60),
-                        json.dumps(question_results)
+                        json.dumps(question_results, cls=DateTimeEncoder)
                     )
                 )
                 print(f"Successfully inserted quiz attempt with ID: {cursor.lastrowid}")
@@ -894,12 +902,11 @@ def submit_quiz():
     except Exception as e:
         print(f"Error recording quiz attempt in database: {e}")
     
-    # Create quiz result record - ensure all datetime objects are strings
-    current_time = datetime.now()
+    # Create quiz result record - use datetime directly since we have a custom encoder
     result = {
         'quiz_id': quiz_id,
         'quiz_title': quiz.get('title', ''),
-        'timestamp': current_time.isoformat(),  # Convert datetime to string
+        'timestamp': datetime.now(),  # Store as datetime object, will be serialized by our encoder
         'score': score,
         'question_results': question_results,
         'timeout': timeout
@@ -988,8 +995,7 @@ def fail_quiz():
         if 'quiz_history' not in users[user_email]:
             users[user_email]['quiz_history'] = []
         
-        # Convert datetime to string to avoid JSON serialization issues
-        current_time = datetime.now()
+        # Use datetime directly since we have a custom encoder
         users[user_email]['quiz_history'].append({
             'quiz_id': quiz_id,
             'quiz_title': quiz.get('title'),
@@ -997,7 +1003,7 @@ def fail_quiz():
             'total_questions': len(quiz.get('questions', [])),
             'percentage': 0,
             'failed_reason': 'Timeout' if reason == 'timeout' else 'Eye tracking violation detected',
-            'timestamp': current_time.isoformat()
+            'timestamp': datetime.now()
         })
         
         save_users(users)
@@ -1361,7 +1367,7 @@ def admin_save_quiz_questions():
             question_data["options"] = options
             question_data["correct_answer"] = correct_answer
             
-            db_question['options'] = json.dumps(options)
+            db_question["options"] = json.dumps(options, cls=DateTimeEncoder)
             db_question['correct_answer'] = str(correct_answer)
             
             print(f"  Multiple choice: {len(options)} options, correct: {correct_answer}")
@@ -1383,7 +1389,7 @@ def admin_save_quiz_questions():
             blanks = request.form.getlist(f'fill_blank_answers_{q_idx}[]')
             question_data["blanks"] = blanks
             db_question['correct_answer'] = blanks[0] if blanks else ''
-            db_question['options'] = json.dumps(blanks)
+            db_question['options'] = json.dumps(blanks, cls=DateTimeEncoder)
             print(f"  Fill in blank: {len(blanks)} blanks")
             
         elif question_type == "matching":
@@ -1404,8 +1410,8 @@ def admin_save_quiz_questions():
                 'right_items': right_items,
                 'correct_matches': correct_matches
             }
-            db_question['options'] = json.dumps(matching_data)
-            db_question['correct_answer'] = json.dumps(correct_matches)
+            db_question['options'] = json.dumps(matching_data, cls=DateTimeEncoder)
+            db_question['correct_answer'] = json.dumps(correct_matches, cls=DateTimeEncoder)
             
             print(f"  Matching: {len(left_items)} left items, {len(right_items)} right items")
         
