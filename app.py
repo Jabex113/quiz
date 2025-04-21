@@ -894,11 +894,12 @@ def submit_quiz():
     except Exception as e:
         print(f"Error recording quiz attempt in database: {e}")
     
-    # Create quiz result record
+    # Create quiz result record - ensure all datetime objects are strings
+    current_time = datetime.now()
     result = {
         'quiz_id': quiz_id,
         'quiz_title': quiz.get('title', ''),
-        'timestamp': datetime.now().isoformat(),
+        'timestamp': current_time.isoformat(),  # Convert datetime to string
         'score': score,
         'question_results': question_results,
         'timeout': timeout
@@ -987,6 +988,8 @@ def fail_quiz():
         if 'quiz_history' not in users[user_email]:
             users[user_email]['quiz_history'] = []
         
+        # Convert datetime to string to avoid JSON serialization issues
+        current_time = datetime.now()
         users[user_email]['quiz_history'].append({
             'quiz_id': quiz_id,
             'quiz_title': quiz.get('title'),
@@ -994,7 +997,7 @@ def fail_quiz():
             'total_questions': len(quiz.get('questions', [])),
             'percentage': 0,
             'failed_reason': 'Timeout' if reason == 'timeout' else 'Eye tracking violation detected',
-            'timestamp': datetime.now().isoformat()
+            'timestamp': current_time.isoformat()
         })
         
         save_users(users)
@@ -1504,11 +1507,16 @@ def account_settings():
     finally:
         conn.close()
     
+    # Ensure created_at is a string
+    created_at = user['created_at']
+    if isinstance(created_at, datetime):
+        created_at = created_at.strftime('%B %d, %Y at %I:%M %p')
+    
     return render_template(
         'account_settings.html',
         username=user['username'],
         strand=user['strand'],
-        account_created=user['created_at'],
+        account_created=created_at,
         completed_quizzes=completed_quizzes
     )
 
