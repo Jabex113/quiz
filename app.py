@@ -11,8 +11,6 @@ import json
 import requests
 from datetime import datetime, timedelta
 import base64
-import numpy as np
-import cv2
 import io
 import uuid
 import pymysql  # Add MySQL connector
@@ -394,6 +392,10 @@ def dashboard():
             flash('User not found', 'error')
             return redirect(url_for('index'))
     
+    # Display one-time notification about quiz policy (only if from start_quiz redirect)
+    if request.args.get('source') == 'quiz_policy':
+        flash('Remember: Each quiz can only be taken once. Complete each quiz carefully!', 'info')
+    
     # Load quizzes
     quizzes = load_quizzes()
     
@@ -407,7 +409,7 @@ def dashboard():
             with conn.cursor(pymysql.cursors.DictCursor) as cursor:
                 # Get all user quiz attempts
                 cursor.execute(
-                    """SELECT quiz_id, score, passed FROM quiz_attempts 
+                    """SELECT quiz_id, score, raw_score, total_questions, passed FROM quiz_attempts 
                        WHERE user_id = %s""",
                     (user.get('id', 0))
                 )
@@ -419,12 +421,16 @@ def dashboard():
                 # Group attempts by quiz_id to find highest score for each quiz
                 for attempt in attempts:
                     quiz_id = attempt['quiz_id']
-                    score = attempt['score']
+                    score_percentage = attempt['score']
+                    raw_score = attempt.get('raw_score', 0)  # Default to 0 if field doesn't exist
+                    total_questions = attempt.get('total_questions', 10)  # Default to 10 if field doesn't exist
                     passed = attempt['passed']
                     
-                    if quiz_id not in quiz_stats or score > quiz_stats[quiz_id].get('highest_score', 0):
+                    if quiz_id not in quiz_stats or score_percentage > quiz_stats[quiz_id].get('score_percentage', 0):
                         quiz_stats[quiz_id] = {
-                            'highest_score': score,
+                            'score_percentage': score_percentage,
+                            'raw_score': raw_score,
+                            'total_questions': total_questions,
                             'passed': passed
                         }
             conn.close()
@@ -436,12 +442,16 @@ def dashboard():
             # Extract stats from quiz history
             for attempt in quiz_history:
                 quiz_id = attempt.get('quiz_id')
-                score = attempt.get('score', 0)
-                passed = score >= 60  # Assuming 60% is passing
+                score_percentage = attempt.get('score_percentage', attempt.get('score', 0))
+                raw_score = attempt.get('raw_score', 0)
+                total_questions = attempt.get('total_score', attempt.get('total_questions', 10))
+                passed = score_percentage >= 60  # Assuming 60% is passing
                 
-                if quiz_id not in quiz_stats or score > quiz_stats[quiz_id].get('highest_score', 0):
+                if quiz_id not in quiz_stats or score_percentage > quiz_stats[quiz_id].get('score_percentage', 0):
                     quiz_stats[quiz_id] = {
-                        'highest_score': score,
+                        'score_percentage': score_percentage,
+                        'raw_score': raw_score,
+                        'total_questions': total_questions,
                         'passed': passed
                     }
     except Exception as e:
@@ -577,8 +587,20 @@ def start_quiz(quiz_id):
                 return redirect(url_for('dashboard'))
     except Exception as e:
         print(f"Error checking quiz attempts: {e}")
+        # Fall back to file-based check for legacy users
+        if isinstance(user, dict) and 'quiz_history' in user:
+            for attempt in user['quiz_history']:
+                if attempt.get('quiz_id') == quiz_id:
+                    flash('You have already taken this quiz. Each quiz can only be taken once.', 'error')
+                    return redirect(url_for('dashboard'))
     finally:
-        conn.close()
+        if conn:
+            conn.close()
+    
+    # Let's remind users of the one-attempt policy when they first access a quiz
+    if request.args.get('confirm') != 'yes':
+        flash('Important: You can only take each quiz ONCE. Are you ready to begin?', 'warning')
+        return redirect(url_for('dashboard', source='quiz_policy'))
     
     quizzes = load_quizzes()
     quiz = next((q for q in quizzes if q['id'] == quiz_id), None)
@@ -674,6 +696,8 @@ def create_tables(cursor):
         start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         end_time TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
         score DECIMAL(5,2) DEFAULT 0,
+        raw_score INT DEFAULT 0,
+        total_questions INT DEFAULT 0,
         passed BOOLEAN DEFAULT FALSE,
         answers JSON,
         INDEX (user_id),
@@ -692,6 +716,20 @@ def create_tables(cursor):
         INDEX (db_id)
     )
     """)
+    
+    # Check if raw_score and total_questions columns exist in quiz_attempts, add if not
+    try:
+        cursor.execute("SHOW COLUMNS FROM quiz_attempts LIKE 'raw_score'")
+        if not cursor.fetchone():
+            cursor.execute("ALTER TABLE quiz_attempts ADD COLUMN raw_score INT DEFAULT 0")
+            print("Added raw_score column to quiz_attempts table")
+    
+        cursor.execute("SHOW COLUMNS FROM quiz_attempts LIKE 'total_questions'")
+        if not cursor.fetchone():
+            cursor.execute("ALTER TABLE quiz_attempts ADD COLUMN total_questions INT DEFAULT 0")
+            print("Added total_questions column to quiz_attempts table")
+    except Exception as e:
+        print(f"Error checking or adding columns: {e}")
 
 # Make sure tables exist when app starts
 try:
@@ -856,8 +894,10 @@ def submit_quiz():
             'feedback': feedback
         })
     
-    # Calculate score as percentage
-    score = (correct_count / total_questions) * 100 if total_questions > 0 else 0
+    # Calculate score as number of correct answers and percentage
+    raw_score = correct_count
+    total_score = total_questions
+    score_percentage = (correct_count / total_questions) * 100 if total_questions > 0 else 0
     
     # Store in file-based system
     if isinstance(user, dict):
@@ -867,8 +907,10 @@ def submit_quiz():
         user['quiz_history'].append({
             'quiz_id': quiz_id,
             'quiz_title': quiz.get('title', ''),
-            'timestamp': datetime.now().isoformat(),
-            'score': score,
+            'timestamp': datetime.now(),
+            'raw_score': raw_score,
+            'total_score': total_score,
+            'score_percentage': score_percentage,
             'question_results': question_results,
             'timeout': timeout
         })
@@ -886,13 +928,15 @@ def submit_quiz():
                 # Insert quiz attempt - using direct string for quiz_id since it may not be an integer
                 cursor.execute(
                     """INSERT INTO quiz_attempts 
-                       (user_id, quiz_id, score, passed, answers) 
-                       VALUES (%s, %s, %s, %s, %s)""",
+                       (user_id, quiz_id, score, raw_score, total_questions, passed, answers) 
+                       VALUES (%s, %s, %s, %s, %s, %s, %s)""",
                     (
                         user.get('id', 0),
                         quiz_id,
-                        score,
-                        score >= quiz.get('passing_score', 60),
+                        score_percentage,
+                        raw_score,
+                        total_questions,
+                        score_percentage >= quiz.get('passing_score', 60),
                         json.dumps(question_results, cls=DateTimeEncoder)
                     )
                 )
@@ -906,8 +950,10 @@ def submit_quiz():
     result = {
         'quiz_id': quiz_id,
         'quiz_title': quiz.get('title', ''),
-        'timestamp': datetime.now(),  # Store as datetime object, will be serialized by our encoder
-        'score': score,
+        'timestamp': datetime.now(),
+        'raw_score': raw_score,
+        'total_score': total_score,
+        'score_percentage': score_percentage,
         'question_results': question_results,
         'timeout': timeout
     }
@@ -916,7 +962,7 @@ def submit_quiz():
     session['last_quiz_results'] = result
     
     # Redirect to results page
-    return redirect(url_for('quiz_results', quiz_id=quiz_id, score=score))
+    return redirect(url_for('quiz_results', quiz_id=quiz_id, score=f"{raw_score}/{total_score}"))
 
 @app.route('/quiz-results')
 def quiz_results():
@@ -987,7 +1033,39 @@ def fail_quiz():
         flash('Quiz not found', 'error')
         return redirect(url_for('dashboard'))
     
-    # Record failed quiz result due to reason (timeout or eye tracking violation)
+    # Get user information
+    user = get_user_by_email(session['user_email'])
+    
+    # Record failure in database if possible
+    if user and 'id' in user:
+        try:
+            conn = get_db_connection()
+            if conn:
+                with conn.cursor() as cursor:
+                    # Insert quiz attempt with score 0
+                    cursor.execute(
+                        """INSERT INTO quiz_attempts 
+                           (user_id, quiz_id, score, passed, answers) 
+                           VALUES (%s, %s, %s, %s, %s)""",
+                        (
+                            user['id'],
+                            quiz_id,
+                            0,  # score is 0 for failed quiz
+                            False,  # not passed
+                            json.dumps([{
+                                'question': 'Quiz failed',
+                                'question_type': 'system',
+                                'reason': 'Timeout' if reason == 'timeout' else 'Eye tracking violation detected',
+                                'is_correct': False
+                            }], cls=DateTimeEncoder)
+                        )
+                    )
+                conn.commit()
+                conn.close()
+        except Exception as e:
+            print(f"Error recording failed quiz in database: {e}")
+    
+    # Record failed quiz result in file-based system as fallback
     users = load_users()
     user_email = session['user_email']
     

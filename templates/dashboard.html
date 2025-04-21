@@ -459,6 +459,58 @@
             from {transform: translateY(-50px); opacity: 0;}
             to {transform: translateY(0); opacity: 1;}
         }
+
+        .completed-badge {
+            display: inline-block;
+            padding: 8px 15px;
+            background: #d1fae5;
+            color: #065f46;
+            border-radius: 5px;
+            font-weight: 500;
+            text-align: center;
+        }
+
+        .completed-badge i {
+            margin-right: 5px;
+        }
+
+        .modal-icon.warning {
+            color: #f59e0b;
+        }
+        
+        .modal-actions {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .btn-primary, .btn-secondary {
+            padding: 8px 15px;
+            border-radius: 5px;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+        }
+        
+        .btn-primary {
+            background: #6366f1;
+            color: white;
+            text-decoration: none;
+        }
+        
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #1f2937;
+        }
+        
+        .btn-primary:hover {
+            background: #4f46e5;
+        }
+        
+        .btn-secondary:hover {
+            background: #e5e7eb;
+        }
     </style>
 </head>
 <body>
@@ -505,6 +557,24 @@
             </div>
             <div class="modal-title">Success!</div>
             <div class="modal-message" id="successMessage">Action completed successfully.</div>
+        </div>
+    </div>
+
+    <!-- Quiz Confirmation Modal -->
+    <div id="quizConfirmModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div class="modal-icon warning">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <div class="modal-title">Important Notice</div>
+            <div class="modal-message">
+                You can only take each quiz <strong>ONCE</strong>. Are you sure you're ready to start this quiz?
+            </div>
+            <div class="modal-actions">
+                <button id="cancelQuizBtn" class="btn-secondary">Cancel</button>
+                <a id="confirmQuizBtn" href="#" class="btn-primary">Yes, Start Quiz</a>
+            </div>
         </div>
     </div>
 
@@ -562,19 +632,25 @@
                                         {{ quiz.subject }}
                                     </span>
                                     
-                                    {% if quiz.id in quiz_stats and quiz_stats[quiz.id]['highest_score'] > 0 %}
+                                    {% if quiz.id in quiz_stats %}
                                     <span class="meta-item">
                                         <i class="fas fa-trophy"></i>
-                                        Highest Score: 
-                                        <span class="score-badge {% if quiz_stats[quiz.id]['highest_score'] >= 80 %}high{% elif quiz_stats[quiz.id]['highest_score'] >= 50 %}medium{% else %}low{% endif %}">
-                                            {{ quiz_stats[quiz.id]['highest_score'] }}%
+                                        Score: 
+                                        <span class="score-badge {% if quiz_stats[quiz.id]['score_percentage'] >= 80 %}high{% elif quiz_stats[quiz.id]['score_percentage'] >= 50 %}medium{% else %}low{% endif %}">
+                                            {{ quiz_stats[quiz.id]['raw_score'] }}/{{ quiz_stats[quiz.id]['total_questions'] }}
                                         </span>
                                     </span>
                                     {% endif %}
                                 </div>
-                                <a href="{{ url_for('start_quiz', quiz_id=quiz.id) }}" class="take-quiz-btn">
-                                    {% if quiz.id in quiz_stats %}Retake Quiz{% else %}Take Quiz{% endif %}
+                                {% if quiz.id in quiz_stats %}
+                                <div class="completed-badge">
+                                    <i class="fas fa-check-circle"></i> Completed
+                                </div>
+                                {% else %}
+                                <a href="{{ url_for('start_quiz', quiz_id=quiz.id, confirm='yes') }}" class="take-quiz-btn" data-href="{{ url_for('start_quiz', quiz_id=quiz.id, confirm='yes') }}">
+                                    Take Quiz
                                 </a>
+                                {% endif %}
                             </div>
                         </div>
                         {% else %}
@@ -609,19 +685,25 @@
                                         {{ quiz.subject }}
                                     </span>
                                     
-                                    {% if quiz.id in quiz_stats and quiz_stats[quiz.id]['highest_score'] > 0 %}
+                                    {% if quiz.id in quiz_stats %}
                                     <span class="meta-item">
                                         <i class="fas fa-trophy"></i>
-                                        Highest Score: 
-                                        <span class="score-badge {% if quiz_stats[quiz.id]['highest_score'] >= 80 %}high{% elif quiz_stats[quiz.id]['highest_score'] >= 50 %}medium{% else %}low{% endif %}">
-                                            {{ quiz_stats[quiz.id]['highest_score'] }}%
+                                        Score: 
+                                        <span class="score-badge {% if quiz_stats[quiz.id]['score_percentage'] >= 80 %}high{% elif quiz_stats[quiz.id]['score_percentage'] >= 50 %}medium{% else %}low{% endif %}">
+                                            {{ quiz_stats[quiz.id]['raw_score'] }}/{{ quiz_stats[quiz.id]['total_questions'] }}
                                         </span>
                                     </span>
                                     {% endif %}
                                 </div>
-                                <a href="{{ url_for('start_quiz', quiz_id=quiz.id) }}" class="take-quiz-btn">
-                                    {% if quiz.id in quiz_stats %}Retake Quiz{% else %}Take Quiz{% endif %}
+                                {% if quiz.id in quiz_stats %}
+                                <div class="completed-badge">
+                                    <i class="fas fa-check-circle"></i> Completed
+                                </div>
+                                {% else %}
+                                <a href="{{ url_for('start_quiz', quiz_id=quiz.id, confirm='yes') }}" class="take-quiz-btn" data-href="{{ url_for('start_quiz', quiz_id=quiz.id, confirm='yes') }}">
+                                    Take Quiz
                                 </a>
+                                {% endif %}
                             </div>
                         </div>
                         {% else %}
@@ -747,6 +829,42 @@
                 document.getElementById('successModal').style.display = 'none';
             }, 3000);
         }
+
+        // Quiz confirmation modal functionality
+        const quizConfirmModal = document.getElementById('quizConfirmModal');
+        const confirmQuizBtn = document.getElementById('confirmQuizBtn');
+        const cancelQuizBtn = document.getElementById('cancelQuizBtn');
+        const closeBtn = quizConfirmModal.querySelector('.close');
+        
+        // Update all quiz buttons to use the confirmation modal
+        document.querySelectorAll('.take-quiz-btn').forEach(btn => {
+            const originalHref = btn.getAttribute('data-href');
+            btn.setAttribute('data-href', originalHref);
+            btn.removeAttribute('href');
+            
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                confirmQuizBtn.setAttribute('href', this.getAttribute('data-href'));
+                quizConfirmModal.style.display = 'block';
+            });
+        });
+        
+        // Close modal when clicking the cancel button
+        cancelQuizBtn.addEventListener('click', function() {
+            quizConfirmModal.style.display = 'none';
+        });
+        
+        // Close modal when clicking the X
+        closeBtn.addEventListener('click', function() {
+            quizConfirmModal.style.display = 'none';
+        });
+        
+        // Close modal when clicking outside of it
+        window.addEventListener('click', function(event) {
+            if (event.target == quizConfirmModal) {
+                quizConfirmModal.style.display = 'none';
+            }
+        });
     </script>
 </body>
 </html> 

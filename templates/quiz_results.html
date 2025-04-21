@@ -64,9 +64,9 @@
             color: white;
             position: relative;
             background: conic-gradient(
-                {{ 'green' if results.score >= 70 else 'orange' if results.score >= 50 else 'red' }} 
-                {{ results.score * 3.6 }}deg, 
-                #e5e7eb {{ results.score * 3.6 }}deg 360deg
+                {{ 'green' if results.score_percentage >= 70 else 'orange' if results.score_percentage >= 50 else 'red' }} 
+                {{ results.score_percentage * 3.6 }}deg, 
+                #e5e7eb {{ results.score_percentage * 3.6 }}deg 360deg
             );
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
         }
@@ -85,7 +85,7 @@
         .score-value {
             font-size: 2.5rem;
             font-weight: bold;
-            color: {{ 'green' if results.score >= 70 else 'orange' if results.score >= 50 else 'red' }};
+            color: {{ 'green' if results.score_percentage >= 70 else 'orange' if results.score_percentage >= 50 else 'red' }};
         }
 
         .score-summary {
@@ -109,7 +109,7 @@
             margin-top: 10px;
             font-weight: 600;
             font-size: 1.2rem;
-            color: {{ 'green' if results.score >= 70 else 'orange' if results.score >= 50 else 'red' }};
+            color: {{ 'green' if results.score_percentage >= 70 else 'orange' if results.score_percentage >= 50 else 'red' }};
         }
 
         .questions-review {
@@ -266,22 +266,22 @@
         <div class="score-display">
             <div class="score-circle">
                 <div class="score-inner">
-                    <span class="score-value">{{ results.score|round(0, 'floor')|int }}%</span>
+                    <span class="score-value">{{ results.raw_score }}/{{ results.total_score }}</span>
                 </div>
             </div>
         </div>
 
         <div class="score-summary">
-            <p>You got <span class="correct-count">{{ results.correct_count }}</span> out of <span class="total-count">{{ results.total_questions }}</span> questions correct.</p>
+            <p>You got <span class="correct-count">{{ results.raw_score }}</span> out of <span class="total-count">{{ results.total_score }}</span> questions correct.</p>
             <p class="score-text">
-                {% if results.score >= 90 %}
+                {% if results.score_percentage >= 90 %}
                 Excellent!
-                {% elif results.score >= 70 %}
+                {% elif results.score_percentage >= 70 %}
                 Good job!
-                {% elif results.score >= 50 %}
+                {% elif results.score_percentage >= 50 %}
                 Keep practicing!
                 {% else %}
-                Try again!
+                You need to study more.
                 {% endif %}
             </p>
         </div>
