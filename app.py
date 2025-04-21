@@ -389,17 +389,9 @@ def dashboard():
     # Load quizzes
     quizzes = load_quizzes()
     
-    # Organize quizzes by category
-    organized_quizzes = {}
-    for quiz in quizzes:
-        category = quiz.get('quiz_category', 'Uncategorized')
-        if category not in organized_quizzes:
-            organized_quizzes[category] = []
-        organized_quizzes[category].append(quiz)
-    
     # Get quiz attempts from database for this user
     quiz_stats = {}
-    total_quizzes_completed = 0
+    total_completed_quizzes = 0
     
     try:
         conn = get_db_connection()
@@ -414,7 +406,7 @@ def dashboard():
                 attempts = cursor.fetchall()
                 
                 # Count total completed quizzes
-                total_quizzes_completed = len(attempts)
+                total_completed_quizzes = len(attempts)
                 
                 # Group attempts by quiz_id to find highest score for each quiz
                 for attempt in attempts:
@@ -422,16 +414,16 @@ def dashboard():
                     score = attempt['score']
                     passed = attempt['passed']
                     
-                    if quiz_id not in quiz_stats or score > quiz_stats[quiz_id]['score']:
+                    if quiz_id not in quiz_stats or score > quiz_stats[quiz_id].get('highest_score', 0):
                         quiz_stats[quiz_id] = {
-                            'score': score,
+                            'highest_score': score,
                             'passed': passed
                         }
             conn.close()
         else:
             # Fallback to file-based quiz history if database not available
             quiz_history = user.get('quiz_history', [])
-            total_quizzes_completed = len(quiz_history)
+            total_completed_quizzes = len(quiz_history)
             
             # Extract stats from quiz history
             for attempt in quiz_history:
@@ -439,9 +431,9 @@ def dashboard():
                 score = attempt.get('score', 0)
                 passed = score >= 60  # Assuming 60% is passing
                 
-                if quiz_id not in quiz_stats or score > quiz_stats[quiz_id]['score']:
+                if quiz_id not in quiz_stats or score > quiz_stats[quiz_id].get('highest_score', 0):
                     quiz_stats[quiz_id] = {
-                        'score': score,
+                        'highest_score': score,
                         'passed': passed
                     }
     except Exception as e:
@@ -449,14 +441,16 @@ def dashboard():
         # Fallback to file-based quiz history
         if isinstance(user, dict):
             quiz_history = user.get('quiz_history', [])
-            total_quizzes_completed = len(quiz_history)
+            total_completed_quizzes = len(quiz_history)
     
-    return render_template('dashboard_new.html', 
-        username=user.get('username', session.get('username', '')),
-        strand=user.get('strand', ''),
+    # Add question_count to each quiz
+    for quiz in quizzes:
+        quiz['question_count'] = len(quiz.get('questions', []))
+    
+    return render_template('dashboard.html', 
+        user=user,
         quizzes=quizzes,
-        organized_quizzes=organized_quizzes,
-        total_quizzes_completed=total_quizzes_completed,
+        total_completed_quizzes=total_completed_quizzes,
         quiz_stats=quiz_stats
     )
 

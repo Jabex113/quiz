@@ -652,22 +652,33 @@ body {
     <div class="admin-container">
         {% if not is_teacher %}
         <div class="admin-section">
-            <h3>Create Teacher Account</h3>
-            <form action="{{ url_for('create_teacher') }}" method="post" class="teacher-form">
-                <div class="form-group">
-                    <label for="teacher_username">Username:</label>
-                    <input type="text" id="teacher_username" name="username" required>
+            <h3>Teacher Accounts</h3>
+            <button id="createTeacherBtn" class="action-btn" type="button">
+                <i class="fas fa-user-plus"></i> Create Teacher Account
+            </button>
+            
+            <!-- Create Teacher Modal -->
+            <div id="createTeacherModal" class="modal">
+                <div class="modal-content">
+                    <span class="close" id="closeTeacherModal">&times;</span>
+                    <div class="modal-title">Create New Teacher Account</div>
+                    <form action="{{ url_for('create_teacher') }}" method="post" class="teacher-form">
+                        <div class="form-group">
+                            <label for="teacher_username">Username:</label>
+                            <input type="text" id="teacher_username" name="username" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="teacher_email">Email:</label>
+                            <input type="email" id="teacher_email" name="email" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="teacher_password">Password:</label>
+                            <input type="password" id="teacher_password" name="password" required>
+                        </div>
+                        <button type="submit">Create Account</button>
+                    </form>
                 </div>
-                <div class="form-group">
-                    <label for="teacher_email">Email:</label>
-                    <input type="email" id="teacher_email" name="email" required>
-                </div>
-                <div class="form-group">
-                    <label for="teacher_password">Password:</label>
-                    <input type="password" id="teacher_password" name="password" required>
-                </div>
-                <button type="submit">Create Teacher Account</button>
-            </form>
+            </div>
         </div>
         {% endif %}
         
@@ -1606,6 +1617,32 @@ body {
                 document.getElementById('successModal').style.display = 'none';
             }, 3000);
         }
+        
+        // Teacher modal functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const createTeacherBtn = document.getElementById('createTeacherBtn');
+            const createTeacherModal = document.getElementById('createTeacherModal');
+            const closeTeacherModal = document.getElementById('closeTeacherModal');
+            
+            if (createTeacherBtn) {
+                createTeacherBtn.addEventListener('click', function() {
+                    createTeacherModal.style.display = 'block';
+                });
+            }
+            
+            if (closeTeacherModal) {
+                closeTeacherModal.addEventListener('click', function() {
+                    createTeacherModal.style.display = 'none';
+                });
+            }
+            
+            // Close modal when clicking outside of it
+            window.addEventListener('click', function(event) {
+                if (event.target == createTeacherModal) {
+                    createTeacherModal.style.display = 'none';
+                }
+            });
+        });
     </script>
 </body>
 </html>
