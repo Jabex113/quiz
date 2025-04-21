@@ -841,7 +841,7 @@ def submit_quiz():
         user = users.get(session['user_email'])
         if not user:
             flash('User not found', 'error')
-            return redirect(url_for('dashboard'))
+        return redirect(url_for('dashboard'))
     
     # Initialize results
     correct_count = 0
@@ -862,7 +862,7 @@ def submit_quiz():
             if user_answer is not None:
                 try:
                     # Convert to int and add question data for debugging
-                    user_answer = int(user_answer)
+                user_answer = int(user_answer)
                     correct_answer = question.get('correct_answer')
                     options = question.get('options', [])
                     print(f"Debug - Question {i}: Processed user answer = {user_answer}, Correct answer = {correct_answer}")
@@ -937,20 +937,20 @@ def submit_quiz():
             if not matching_pairs:  # If no matching pairs, can't be correct
                 is_correct = False
             else:
-                for item_index, selected_value in user_answers.items():
+            for item_index, selected_value in user_answers.items():
                     try:
                         item_idx = int(item_index)
                         if item_idx < len(matching_pairs):
                             correct_value = matching_pairs[item_idx].get('match')
-                            if selected_value != correct_value:
+                if selected_value != correct_value:
                                 is_correct = False
                                 break
                         else:
                             is_correct = False
                             break
                     except (ValueError, TypeError, IndexError):
-                        is_correct = False
-                        break
+                    is_correct = False
+                    break
         
         # Add to correct count if answer is correct
         if is_correct:
@@ -988,7 +988,7 @@ def submit_quiz():
         })
         
         # Save to file system
-        users = load_users()
+    users = load_users()
         users[session['user_email']] = user
         save_users(users)
     
@@ -1746,7 +1746,7 @@ def get_categories(strand):
 def account_settings():
     if 'user_email' not in session:
         return redirect(url_for('index'))
-    
+
     email = session['user_email']
     user = get_user_by_email(email)
     
@@ -1789,7 +1789,7 @@ def update_account():
     
     if not user:
         return jsonify({"success": False, "message": "User not found"})
-    
+
     new_username = request.form.get('username')
     current_password = request.form.get('current_password')
     new_password = request.form.get('new_password')
@@ -1798,7 +1798,7 @@ def update_account():
     
     if new_username and new_username != user['username']:
         data['username'] = new_username
-        session['username'] = new_username
+    session['username'] = new_username
     
     if current_password and new_password:
         if not check_password_hash(user['password'], current_password):
@@ -1818,12 +1818,12 @@ def update_account():
 def delete_account():
     if 'user_email' not in session:
         return redirect(url_for('index'))
-    
+
     email = session['user_email']
-    
+
     if delete_user(email):
-        session.clear()
-        flash('Your account has been deleted', 'success')
+    session.clear()
+    flash('Your account has been deleted', 'success')
     else:
         flash('Failed to delete account', 'error')
     
@@ -1863,17 +1863,15 @@ def create_teacher():
         flash('Email already registered', 'error')
         return redirect(url_for('admin_dashboard'))
     
-    # Hash password for storage
-    hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
-    
-    # Try to create teacher account in database
+    # Create teacher account in database with original password
+    # create_user will hash it internally
     db_success = create_user(
         username,
         fullname,
         'TEACHER',  # Use TEACHER as LRN for teachers
         email,
-        password,  # Password will be hashed in create_user function
-        subject,  # Use subject as strand for teachers
+        password,   # Not hashing here as create_user will do it
+        subject     # Use subject as strand for teachers
     )
     
     # Update role in database if successful
@@ -1881,6 +1879,8 @@ def create_teacher():
         update_user(email, {'role': 'teacher'})
     
     # Always add to file storage as backup
+    # Hash password for storage in the file
+    hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
     users[email] = {
         'username': username,
         'fullname': fullname,
