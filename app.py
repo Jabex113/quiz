@@ -397,7 +397,11 @@ def dashboard():
         flash('Remember: Each quiz can only be taken once. Complete each quiz carefully!', 'info')
     
     # Load quizzes
-    quizzes = load_quizzes()
+    all_quizzes = load_quizzes()
+    
+    # Filter quizzes based on user's strand
+    user_strand = user.get('strand', '')
+    quizzes = [quiz for quiz in all_quizzes if not quiz.get('strand') or quiz.get('strand') == user_strand]
     
     # Get quiz attempts from database for this user
     quiz_stats = {}
@@ -573,7 +577,10 @@ def start_quiz(quiz_id):
         flash('User not found', 'error')
         return redirect(url_for('dashboard'))
     
-    # Check if the user has already completed this quiz
+    # Check if the user has already completed this quiz - strictly enforce one quiz attempt
+    quiz_attempts_exist = False
+    
+    # Check database first
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
@@ -583,24 +590,24 @@ def start_quiz(quiz_id):
             )
             existing_attempt = cursor.fetchone()
             if existing_attempt:
-                flash('You have already taken this quiz. Each quiz can only be taken once.', 'error')
-                return redirect(url_for('dashboard'))
+                quiz_attempts_exist = True
     except Exception as e:
         print(f"Error checking quiz attempts: {e}")
-        # Fall back to file-based check for legacy users
-        if isinstance(user, dict) and 'quiz_history' in user:
-            for attempt in user['quiz_history']:
-                if attempt.get('quiz_id') == quiz_id:
-                    flash('You have already taken this quiz. Each quiz can only be taken once.', 'error')
-                    return redirect(url_for('dashboard'))
     finally:
         if conn:
             conn.close()
     
-    # Let's remind users of the one-attempt policy when they first access a quiz
-    if request.args.get('confirm') != 'yes':
-        flash('Important: You can only take each quiz ONCE. Are you ready to begin?', 'warning')
-        return redirect(url_for('dashboard', source='quiz_policy'))
+    # Then check file-based storage as fallback
+    if not quiz_attempts_exist and isinstance(user, dict) and 'quiz_history' in user:
+        for attempt in user['quiz_history']:
+            if attempt.get('quiz_id') == quiz_id:
+                quiz_attempts_exist = True
+                break
+    
+    # If attempts exist, redirect to dashboard with message
+    if quiz_attempts_exist:
+        flash('You have already completed this quiz. Each quiz can only be taken once.', 'error')
+        return redirect(url_for('dashboard'))
     
     quizzes = load_quizzes()
     quiz = next((q for q in quizzes if q['id'] == quiz_id), None)
@@ -620,6 +627,14 @@ def start_quiz(quiz_id):
     
     if not quiz or 'questions' not in quiz:
         flash('Quiz not found or no questions available', 'error')
+        return redirect(url_for('dashboard'))
+    
+    # Only show quizzes for the user's strand
+    user_strand = user.get('strand', '')
+    quiz_strand = quiz.get('strand', '')
+    
+    if quiz_strand and user_strand and quiz_strand != user_strand:
+        flash(f'This quiz is for {quiz_strand} students only', 'error')
         return redirect(url_for('dashboard'))
     
     # Make sure all questions have time limits set and standardized field names
@@ -955,7 +970,10 @@ def submit_quiz():
         'total_score': total_score,
         'score_percentage': score_percentage,
         'question_results': question_results,
-        'timeout': timeout
+        'timeout': timeout,
+        'student_name': user.get('fullname', user.get('username', 'Unknown')),
+        'student_email': user.get('email', session.get('user_email', 'Unknown')),
+        'student_strand': user.get('strand', 'Unknown')
     }
     
     # Store the result in the session for display on the results page
@@ -1204,9 +1222,80 @@ def admin_dashboard():
     
     # Get all users and quizzes
     users = load_users()
+    
+    # Get all users from database
+    db_users = []
+    try:
+        conn = get_db_connection()
+        if conn:
+            with conn.cursor(pymysql.cursors.DictCursor) as cursor:
+                cursor.execute("SELECT * FROM users ORDER BY created_at DESC")
+                db_users = cursor.fetchall()
+            conn.close()
+    except Exception as e:
+        print(f"Error fetching users from database: {e}")
+    
+    # Merge database users with file-based users
+    for email, user_data in users.items():
+        if not any(db_user.get('email') == email for db_user in db_users):
+            # Only add if not already in db_users
+            db_users.append({
+                'id': 0,
+                'email': email,
+                'username': user_data.get('username', 'Unknown'),
+                'strand': user_data.get('strand', 'Unknown'),
+                'role': user_data.get('role', 'student'),
+                'created_at': datetime.now() if 'created_at' not in user_data else user_data['created_at'],
+                'legacy': True  # Mark as legacy file-based user
+            })
+    
     quizzes = load_quizzes()
     
-    return render_template('nimda/admin_dashboard.html', users=users, quizzes=quizzes, is_teacher=is_teacher)
+    # Group quizzes by strand
+    quizzes_by_strand = {}
+    for quiz in quizzes:
+        strand = quiz.get('strand', 'General')
+        if strand not in quizzes_by_strand:
+            quizzes_by_strand[strand] = []
+        quizzes_by_strand[strand].append(quiz)
+    
+    # Get quiz attempts data for each quiz
+    quiz_attempts = {}
+    try:
+        conn = get_db_connection()
+        if conn:
+            with conn.cursor(pymysql.cursors.DictCursor) as cursor:
+                # Get all quiz attempts with user information
+                cursor.execute("""
+                    SELECT qa.*, u.fullname, u.email, u.username, u.strand 
+                    FROM quiz_attempts qa
+                    JOIN users u ON qa.user_id = u.id
+                    ORDER BY qa.start_time DESC
+                """)
+                attempts = cursor.fetchall()
+                
+                # Group attempts by quiz_id
+                for attempt in attempts:
+                    quiz_id = attempt['quiz_id']
+                    if quiz_id not in quiz_attempts:
+                        quiz_attempts[quiz_id] = []
+                    quiz_attempts[quiz_id].append(attempt)
+            conn.close()
+    except Exception as e:
+        print(f"Error fetching quiz attempts: {e}")
+    
+    # Add attempts count to each quiz
+    for quiz in quizzes:
+        quiz_id = quiz['id']
+        quiz['attempts_count'] = len(quiz_attempts.get(quiz_id, []))
+        quiz['attempts'] = quiz_attempts.get(quiz_id, [])
+    
+    return render_template('nimda/admin_dashboard.html', 
+                          users=db_users, 
+                          quizzes=quizzes,
+                          quizzes_by_strand=quizzes_by_strand,
+                          quiz_attempts=quiz_attempts,
+                          is_teacher=is_teacher)
 
 @app.route('/nimda/post_quiz', methods=['POST'])
 def admin_post_quiz():
@@ -1217,13 +1306,13 @@ def admin_post_quiz():
         quiz_title = request.form.get('quiz_title')
         quiz_description = request.form.get('quiz_description')
         quiz_topics = request.form.get('quiz_topics')
-        strand = request.form.get('strand')
+        strand = request.form.get('strand')  # This is the strand the quiz is for (ABM, STEM, etc.)
         author_first_name = request.form.get('author_first_name', '')
         author_last_name = request.form.get('author_last_name', '')
         grade_level = request.form.get('grade_level', '')
         quiz_category = request.form.get('quiz_category', '')
         
-        if not all([quiz_title, quiz_description, quiz_topics, strand]):
+        if not all([quiz_title, quiz_description, strand]):
             flash('Please fill in all required fields', 'error')
             return redirect(url_for('admin_dashboard'))
         
@@ -1236,13 +1325,14 @@ def admin_post_quiz():
             'title': quiz_title,
             'description': quiz_description,
             'topics': quiz_topics,
-            'strand': strand,
+            'strand': strand,  # This determines which students can see/take the quiz
             'created_at': datetime.now().isoformat(),
             'questions': [],
             'author_first_name': author_first_name,
             'author_last_name': author_last_name,
             'grade_level': grade_level,
-            'quiz_category': quiz_category
+            'quiz_category': quiz_category,
+            'subject': quiz_category  # For backward compatibility
         }
         
         # Add to file storage
@@ -1263,7 +1353,7 @@ def admin_post_quiz():
                         quiz_title,
                         quiz_description,
                         quiz_category,
-                        strand,
+                        strand,  # Store strand in database
                         'admin',
                     )
                 )
@@ -1284,7 +1374,7 @@ def admin_post_quiz():
         finally:
             conn.close()
         
-        flash('Quiz created successfully!', 'success')
+        flash(f'Quiz created successfully for {strand} students!', 'success')
         return redirect(url_for('admin_dashboard'))
     except Exception as e:
         flash(f'Error creating quiz: {str(e)}', 'error')
@@ -1667,11 +1757,13 @@ def create_teacher():
         return redirect(url_for('admin_login'))
     
     username = request.form.get('username')
+    fullname = request.form.get('fullname', username)  # Use username as fallback for fullname
     email = request.form.get('email')
     password = request.form.get('password')
+    subject = request.form.get('subject', 'General')  # Teacher's subject specialization
     
     if not all([username, email, password]):
-        flash('Please fill in all fields', 'error')
+        flash('Please fill in all required fields', 'error')
         return redirect(url_for('admin_dashboard'))
     
     # Check if user already exists in database
@@ -1683,11 +1775,11 @@ def create_teacher():
     # Create teacher account in database
     if not create_user(
         username,
-        '',  # fullname (not needed for teachers)
-        '',  # lrn (not needed for teachers)
+        fullname,
+        'TEACHER',  # Use TEACHER as LRN for teachers
         email,
         password,
-        '',  # strand (not needed for teachers)
+        subject,  # Use subject as strand for teachers
     ):
         flash('Error creating teacher account', 'error')
         return redirect(url_for('admin_dashboard'))

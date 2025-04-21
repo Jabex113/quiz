@@ -730,6 +730,61 @@ body {
     </div>
     
     <h3>Posted Quizzes</h3>
+    {% if quizzes_by_strand %}
+        {% for strand, strand_quizzes in quizzes_by_strand.items() %}
+            <h3>{{ strand }} Quizzes</h3>
+            <ul>
+                {% for quiz in strand_quizzes %}
+                <li>
+                    <h4>{{ quiz.title }}</h4>
+                    <p>Description: {{ quiz.description }}</p>
+                    <p>Topics: {{ quiz.topics }}</p>
+                    <p>Category: {{ quiz.category }}</p>
+                    <p>Strand: {{ quiz.strand }}</p>
+                    <p>Total Attempts: {{ quiz.attempts_count }}</p>
+                    
+                    {% if quiz.attempts and quiz.attempts|length > 0 %}
+                    <h5>Student Attempts:</h5>
+                    <div style="max-height: 300px; overflow-y: auto; margin-top: 10px; padding: 10px; background-color: #f5f5f5; border-radius: 5px;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="background-color: #4CAF50; color: white;">
+                                    <th style="padding: 8px; text-align: left;">Student</th>
+                                    <th style="padding: 8px; text-align: left;">Strand</th>
+                                    <th style="padding: 8px; text-align: left;">Score</th>
+                                    <th style="padding: 8px; text-align: left;">Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for attempt in quiz.attempts %}
+                                <tr style="border-bottom: 1px solid #ddd;">
+                                    <td style="padding: 8px;">{{ attempt.fullname or attempt.username or attempt.email }}</td>
+                                    <td style="padding: 8px;">{{ attempt.strand or 'N/A' }}</td>
+                                    <td style="padding: 8px;">{{ attempt.score }}/{{ attempt.total_questions }}</td>
+                                    <td style="padding: 8px;">{{ attempt.start_time.strftime('%Y-%m-%d %H:%M') if attempt.start_time else 'N/A' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% endif %}
+                    
+                    <span class="edit-btn" data-quiz-id="{{ quiz.id }}" data-quiz-title="{{ quiz.title }}">
+                        <i class="fas fa-edit"></i> {% if quiz.questions %}Edit Questions{% else %}Add Questions{% endif %}
+                    </span>
+                    <div class="action-btns">
+                        <span class="reset-btn" data-quiz-id="{{ quiz.id }}" data-quiz-title="{{ quiz.title }}">
+                            <i class="fas fa-redo"></i> Reset Quiz
+                        </span>
+                        <span class="delete-btn" data-quiz-id="{{ quiz.id }}">
+                            <i class="fas fa-trash"></i> Delete
+                        </span>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+        {% endfor %}
+    {% else %}
     <ul>
         {% for quiz in quizzes %}
         <li>
@@ -738,6 +793,33 @@ body {
             <p>Topics: {{ quiz.topics }}</p>
             <p>Category: {{ quiz.category }}</p>
             <p>Strand: {{ quiz.strand }}</p>
+            <p>Total Attempts: {{ quiz.attempts_count }}</p>
+            
+            {% if quiz.attempts and quiz.attempts|length > 0 %}
+            <h5>Student Attempts:</h5>
+            <div style="max-height: 300px; overflow-y: auto; margin-top: 10px; padding: 10px; background-color: #f5f5f5; border-radius: 5px;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background-color: #4CAF50; color: white;">
+                            <th style="padding: 8px; text-align: left;">Student</th>
+                            <th style="padding: 8px; text-align: left;">Strand</th>
+                            <th style="padding: 8px; text-align: left;">Score</th>
+                            <th style="padding: 8px; text-align: left;">Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for attempt in quiz.attempts %}
+                        <tr style="border-bottom: 1px solid #ddd;">
+                            <td style="padding: 8px;">{{ attempt.fullname or attempt.username or attempt.email }}</td>
+                            <td style="padding: 8px;">{{ attempt.strand or 'N/A' }}</td>
+                            <td style="padding: 8px;">{{ attempt.score }}/{{ attempt.total_questions }}</td>
+                            <td style="padding: 8px;">{{ attempt.start_time.strftime('%Y-%m-%d %H:%M') if attempt.start_time else 'N/A' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
             
             <span class="edit-btn" data-quiz-id="{{ quiz.id }}" data-quiz-title="{{ quiz.title }}">
                 <i class="fas fa-edit"></i> {% if quiz.questions %}Edit Questions{% else %}Add Questions{% endif %}
@@ -753,6 +835,7 @@ body {
         </li>
         {% endfor %}
     </ul>
+    {% endif %}
 
     <!-- Quiz Questions Form Popup -->
     <div class="popup-container" id="quizQuestionPopup">

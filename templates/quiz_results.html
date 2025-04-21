@@ -254,6 +254,18 @@
             overflow-y: auto;
             padding-right: 10px;
         }
+
+        .student-info {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f0f4ff;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+
+        .student-info p {
+            margin: 5px 0;
+        }
     </style>
 </head>
 <body>
@@ -261,6 +273,10 @@
         <div class="results-header">
             <h1>{{ results.quiz_title }}</h1>
             <p>{% if results.timestamp %}{{ results.timestamp|datetime }}{% else %}Quiz completed just now{% endif %}</p>
+            <div class="student-info">
+                <p>Student: <strong>{{ results.student_name }}</strong> ({{ results.student_strand }})</p>
+                <p>Email: {{ results.student_email }}</p>
+            </div>
         </div>
 
         <div class="score-display">
