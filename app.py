@@ -85,13 +85,50 @@ def init_files():
 # Database user management functions
 def get_user_by_email(email):
     conn = get_db_connection()
+    if not conn:  # If connection failed, check file storage
+        users = load_users()
+        user = users.get(email)
+        if user:
+            # Convert file-based user to similar format as database user
+            return {
+                'id': 0,
+                'email': email,
+                'username': user.get('username', ''),
+                'fullname': user.get('fullname', ''),
+                'lrn': user.get('lrn', ''),
+                'password': user.get('password', ''),
+                'strand': user.get('strand', ''),
+                'role': user.get('role', 'student'),
+                'created_at': user.get('created_at', datetime.now().isoformat())
+            }
+        return None
+        
     try:
         with conn.cursor() as cursor:
             cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
             user = cursor.fetchone()
             return user
+    except Exception as e:
+        print(f"Error fetching user: {e}")
+        # Fallback to file-based storage
+        users = load_users()
+        user = users.get(email)
+        if user:
+            return {
+                'id': 0,
+                'email': email,
+                'username': user.get('username', ''),
+                'fullname': user.get('fullname', ''),
+                'lrn': user.get('lrn', ''),
+                'password': user.get('password', ''),
+                'strand': user.get('strand', ''),
+                'role': user.get('role', 'student'),
+                'created_at': user.get('created_at', datetime.now().isoformat())
+            }
+        return None
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 def create_user(username, fullname, lrn, email, password, strand):
     conn = get_db_connection()
@@ -524,7 +561,7 @@ def change_password():
         return redirect(url_for('dashboard'))
 
     # Update password
-    user['password'] = generate_password_hash(new_password)
+    user['password'] = generate_password_hash(new_password, method='pbkdf2:sha256')
     save_users(users)
 
     flash('Password changed successfully', 'success')
@@ -743,6 +780,18 @@ def create_tables(cursor):
         if not cursor.fetchone():
             cursor.execute("ALTER TABLE quiz_attempts ADD COLUMN total_questions INT DEFAULT 0")
             print("Added total_questions column to quiz_attempts table")
+            
+        # Check if student_name column exists, add if not
+        cursor.execute("SHOW COLUMNS FROM quiz_attempts LIKE 'student_name'")
+        if not cursor.fetchone():
+            cursor.execute("ALTER TABLE quiz_attempts ADD COLUMN student_name VARCHAR(255)")
+            print("Added student_name column to quiz_attempts table")
+            
+        # Check if student_strand column exists, add if not
+        cursor.execute("SHOW COLUMNS FROM quiz_attempts LIKE 'student_strand'")
+        if not cursor.fetchone():
+            cursor.execute("ALTER TABLE quiz_attempts ADD COLUMN student_strand VARCHAR(50)")
+            print("Added student_strand column to quiz_attempts table")
     except Exception as e:
         print(f"Error checking or adding columns: {e}")
 
@@ -940,11 +989,15 @@ def submit_quiz():
         conn = get_db_connection()
         if conn:
             with conn.cursor() as cursor:
-                # Insert quiz attempt - using direct string for quiz_id since it may not be an integer
+                # Get student name and strand
+                student_name = user.get('fullname', user.get('username', 'Unknown'))
+                student_strand = user.get('strand', 'Unknown')
+                
+                # Insert quiz attempt with the actual quiz results
                 cursor.execute(
                     """INSERT INTO quiz_attempts 
-                       (user_id, quiz_id, score, raw_score, total_questions, passed, answers) 
-                       VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                       (user_id, quiz_id, score, raw_score, total_questions, passed, answers, student_name, student_strand) 
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                     (
                         user.get('id', 0),
                         quiz_id,
@@ -952,7 +1005,9 @@ def submit_quiz():
                         raw_score,
                         total_questions,
                         score_percentage >= quiz.get('passing_score', 60),
-                        json.dumps(question_results, cls=DateTimeEncoder)
+                        json.dumps(question_results, cls=DateTimeEncoder),
+                        student_name,
+                        student_strand
                     )
                 )
                 print(f"Successfully inserted quiz attempt with ID: {cursor.lastrowid}")
@@ -1060,11 +1115,15 @@ def fail_quiz():
             conn = get_db_connection()
             if conn:
                 with conn.cursor() as cursor:
+                    # Get student name and strand
+                    student_name = user.get('fullname', user.get('username', 'Unknown'))
+                    student_strand = user.get('strand', 'Unknown')
+                    
                     # Insert quiz attempt with score 0
                     cursor.execute(
                         """INSERT INTO quiz_attempts 
-                           (user_id, quiz_id, score, passed, answers) 
-                           VALUES (%s, %s, %s, %s, %s)""",
+                           (user_id, quiz_id, score, passed, answers, student_name, student_strand) 
+                           VALUES (%s, %s, %s, %s, %s, %s, %s)""",
                         (
                             user['id'],
                             quiz_id,
@@ -1075,7 +1134,9 @@ def fail_quiz():
                                 'question_type': 'system',
                                 'reason': 'Timeout' if reason == 'timeout' else 'Eye tracking violation detected',
                                 'is_correct': False
-                            }], cls=DateTimeEncoder)
+                            }], cls=DateTimeEncoder),
+                            student_name,
+                            student_strand
                         )
                     )
                 conn.commit()
@@ -1197,7 +1258,7 @@ def admin_login():
             flash('Admin login successful', 'success')
             return redirect(url_for('admin_dashboard'))
             
-        # Teacher login - check database
+        # Teacher login - check database first
         email = username  # Use username field for email
         user = get_user_by_email(email)
         
@@ -1208,8 +1269,21 @@ def admin_login():
             session['username'] = user['username']
             flash('Teacher login successful', 'success')
             return redirect(url_for('admin_dashboard'))
-        else:
-            flash('Invalid admin/teacher credentials', 'error')
+        
+        # If not found in database, check file-based storage
+        users = load_users()
+        file_user = users.get(email)
+        
+        if file_user and file_user.get('role') == 'teacher' and check_password_hash(file_user['password'], password):
+            session['admin_logged_in'] = True
+            session['is_teacher'] = True
+            session['user_email'] = email
+            session['username'] = file_user['username']
+            flash('Teacher login successful', 'success')
+            return redirect(url_for('admin_dashboard'))
+            
+        # If not found in either storage
+        flash('Invalid admin/teacher credentials', 'error')
     
     return render_template('nimda/admin_login.html')
 
@@ -1267,9 +1341,12 @@ def admin_dashboard():
             with conn.cursor(pymysql.cursors.DictCursor) as cursor:
                 # Get all quiz attempts with user information
                 cursor.execute("""
-                    SELECT qa.*, u.fullname, u.email, u.username, u.strand 
+                    SELECT qa.*, 
+                           COALESCE(qa.student_name, u.fullname, u.username) AS student_name,
+                           COALESCE(qa.student_strand, u.strand) AS student_strand,
+                           u.email
                     FROM quiz_attempts qa
-                    JOIN users u ON qa.user_id = u.id
+                    LEFT JOIN users u ON qa.user_id = u.id
                     ORDER BY qa.start_time DESC
                 """)
                 attempts = cursor.fetchall()
@@ -1772,20 +1849,40 @@ def create_teacher():
         flash('Email already registered', 'error')
         return redirect(url_for('admin_dashboard'))
     
-    # Create teacher account in database
-    if not create_user(
+    # Check if user exists in file storage
+    users = load_users()
+    if email in users:
+        flash('Email already registered', 'error')
+        return redirect(url_for('admin_dashboard'))
+    
+    # Hash password for storage
+    hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
+    
+    # Try to create teacher account in database
+    db_success = create_user(
         username,
         fullname,
         'TEACHER',  # Use TEACHER as LRN for teachers
         email,
-        password,
+        password,  # Password will be hashed in create_user function
         subject,  # Use subject as strand for teachers
-    ):
-        flash('Error creating teacher account', 'error')
-        return redirect(url_for('admin_dashboard'))
+    )
     
-    # Update the created user to set role as teacher
-    update_user(email, {'role': 'teacher'})
+    # Update role in database if successful
+    if db_success:
+        update_user(email, {'role': 'teacher'})
+    
+    # Always add to file storage as backup
+    users[email] = {
+        'username': username,
+        'fullname': fullname,
+        'lrn': 'TEACHER',
+        'password': hashed_password,  # Already hashed
+        'strand': subject,
+        'role': 'teacher',
+        'created_at': datetime.now().isoformat()
+    }
+    save_users(users)
     
     flash('Teacher account created successfully. Teacher can login through the admin panel using their email and password.', 'success')
     return redirect(url_for('admin_dashboard'))
